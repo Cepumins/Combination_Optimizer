@@ -45,7 +45,7 @@ driver.find_element_by_xpath('//*[@id="find"]').click()
 driver.find_element_by_xpath('//*[@id="uniforma"]/div[1]/table/tbody/tr/td/div/table/tbody/tr[1]/td/fieldset/label').click()
 
 # Wait for the user to solve the captcha manually
-input("Solve the captcha and then press Enter...")
+input("Solve the captcha and then press Enter.../n")
 
 random_delay()
 driver.find_element_by_xpath('//*[@id="find"]').click()

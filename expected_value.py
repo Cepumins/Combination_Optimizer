@@ -10,7 +10,8 @@ import json
 import itertools
 
 #collections = ["Recoil"]
-collections = ["Danger_Zone", "Recoil"]
+#collections = ["Danger_Zone", "Recoil"]
+collections = ["Danger_Zone"]
 #collections = ["Recoil", "Danger_Zone", "Prisma"]
 rarities = ["Covert"]
 #rarities = ["Covert", "Classified", "Restricted"]

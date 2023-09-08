@@ -5,6 +5,28 @@ import math
 import time
 from matplotlib.transforms import Affine2D
 import numpy as np
+# Assuming the collections and split are given as input
+collections = ["Danger_Zone", "Recoil"]  # Example collections for testing
+split = "1-9"  # Example split for testing
+
+with open('ev_Covert.json') as f:
+    data_json = json.load(f)
+
+# Filter data based on collections and split
+filtered_data = [entry for entry in data_json if set(entry[0]) == set(collections) and split in entry[3][0][1]['split']]
+ev_data = filtered_data[0][3]
+
+ev = {}
+st_ev = {}
+for item in ev_data:
+    ev[round(float(item[1]['max_float']), 4)] = item[1]['split'][split]['ev']
+    st_ev[round(float(item[1]['max_float']), 4)] = item[1]['split'][split]['st_ev']
+
+# Extend the first step to x-value of 0
+x = [0] + list(ev.keys())
+y_ev = [list(ev.values())[0]] + list(ev.values())
+y_st_ev = [list(st_ev.values())[0]] + list(st_ev.values())
+
 from scipy.interpolate import interp1d
 from matplotlib.legend_handler import HandlerLine2D
 from matplotlib.lines import Line2D
@@ -93,7 +115,7 @@ def calculate_best_line(item_prices):
     # Get the lowest MinF and highest MaxF
     min_wear = min(item['MinF'] for item in item_prices)
     max_wear = max(item['MaxF'] for item in item_prices)
-    print(f'The min float is {min_wear} and the max float is {max_wear}')
+    #print(f'The min float is {min_wear} and the max float is {max_wear}')
 
     # Iterate over all x values (wear values)
     for x in np.linspace(0.0, max_wear, num=1000):
