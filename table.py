@@ -3,7 +3,9 @@ import numpy as np
 import json
 import time
 
-collections = 'Danger_Zone'
+#just a test
+collections = 'Recoil'
+#collections = 'Danger_Zone'
 rarity = 'Covert'
 count = 100
 round_digits = 2
@@ -58,6 +60,7 @@ filtered_items = prices_data[prices_data['Rarity'] == item_rarity]
 def interpolate_prices_combined(item, is_stattrak=False):
     wear_values = [i / count for i in range(count + 1)]
     prices = []
+    print(item["Item"])
 
     MaxF = item["MaxF"]
     MinF = item["MinF"]
@@ -93,6 +96,7 @@ def interpolate_prices_combined(item, is_stattrak=False):
     if price_mapping["BS"] is not None and price_mapping["WW"] is not None:
         slope_dict["WW"] = (price_mapping["BS"] - price_mapping["WW"]) / (MaxF - 0.45)
         intercept_dict["WW"] = price_mapping["WW"] - slope_dict["WW"] * 0.45
+    print(f'y={slope_dict} * x + {intercept_dict}')
 
     for wear_value in wear_values:
         if MinF <= wear_value <= MaxF:
@@ -110,7 +114,8 @@ def interpolate_prices_combined(item, is_stattrak=False):
             if wear_test in slope_dict:
                 slope = slope_dict[wear_test]
                 intercept = intercept_dict[wear_test]
-                price = (slope * wear_value + intercept) * 10
+                price = (slope * wear_value + intercept)
+                #price = (slope * wear_value + intercept) * 10
             else:
                 price = np.nan
 

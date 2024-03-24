@@ -10,13 +10,13 @@ import json
 import itertools
 
 #collections = ["Recoil"]
-#collections = ["Danger_Zone", "Recoil"]
-collections = ["Danger_Zone"]
+collections = ["Danger_Zone", "Recoil"]
+#collections = ["Danger_Zone"]
 #collections = ["Recoil", "Danger_Zone", "Prisma"]
 rarities = ["Covert"]
 #rarities = ["Covert", "Classified", "Restricted"]
 
-prices_location_structure = "{collection}/{collection}_prices.csv"
+prices_location_structure = "_collections/{collection}/{collection}_prices.csv"
 float_round_decimals = 7 #14
 #collection = "Recoil"
 #collection = sys.argv[1]  # "Recoil"

@@ -10,10 +10,10 @@ rarity = "Classified"
 wear = "ALL"
 StatTrak = False
 
-prefix = collection
+prefix = '_collections'
 
 # Read the CSV file
-filename = f"{prefix}/{collection}_EV.csv"
+filename = f"{prefix}/{collection}/{collection}_EV.csv"
 data_ev = pd.read_csv(filename)
 
 # Define the rarity shift
@@ -50,7 +50,7 @@ with open(filename, newline='') as csvfile:
 # start the timer
 start_time = time.time()
 
-data = pd.read_csv(f"{prefix}/Items/filtered_data_{collection}_{rarity}_{wear}.csv")
+data = pd.read_csv(f"{prefix}/{collection}/Items/filtered_data_{collection}_{rarity}_{wear}.csv")
 #data = pd.read_csv(f"{output}\\{collection}\\filtered_data_{collection}_{rarity}_{wear}.csv")
 
 def print_summary(print_data, title):

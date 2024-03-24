@@ -1,0 +1,16 @@
+{
+    "Danger_Zone": {
+        "10": {
+            "outcomes": [
+                [
+                    {
+                        "Wear": "FN+FN",
+                        "Min Float": 0.0,
+                        "Max Float": 0.0307691,
+                        "Avg Float": "Null",
+                        "Cost": "Null",
+                        "Expected Value": 113.05,
+                        "Expected Profit": "Null",
+                        "Exp Profit %": "Null",
+                        "Time": "00:00:002",
+                        "Best Data": 
