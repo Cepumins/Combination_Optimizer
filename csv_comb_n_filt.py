@@ -11,7 +11,7 @@ def read_links_csv(file_path, collection, quality): # Read the links CSV
 def process_item_data(item_name, collection, quality, wear_levels):
     item_combined_data = pd.DataFrame()
     for wear in wear_levels:
-        file_path = f"{quality}/{collection}/{item_name}_({wear}).csv"
+        file_path = f"items/{quality}/{collection}/{item_name}_({wear}).csv"
         if os.path.exists(file_path):
             data = pd.read_csv(file_path)
             valid_data = data.loc[(data['Float'] > 0) & (data['Float'] < 1)]
@@ -81,7 +81,7 @@ def main(collection, quality):
     print(final_data.head(10))
     #print(final_data)
     
-    final_data.to_csv(f"{quality}/{collection}/_{quality}_comb_n_filt.csv", index=False)    
+    final_data.to_csv(f"items/{quality}/{collection}/_{quality}_comb_n_filt.csv", index=False)    
 
 #collection = 'Clutch'
 
