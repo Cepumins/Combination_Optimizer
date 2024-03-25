@@ -1,77 +1,84 @@
-Coll_ID,Item_ID,Price,Float,Condition,Name,Halo,Collection
-1,1,2.97,0.459713876247406,BS,UMP-45_Momentum,Halo,Danger_Zone
-2,1,3.23,0.2142232507467269,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-3,3,3.24,0.1837493926286697,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-4,4,3.24,0.3187140524387359,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-5,2,3.24,0.3190466165542602,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-6,5,3.36,0.2732087671756744,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-7,6,3.37,0.1800091564655303,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-8,8,3.37,0.1824699193239212,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-9,7,3.37,0.2129268646240234,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-10,9,3.38,0.2762645184993743,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-11,10,3.5,0.3174282908439636,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-12,14,3.51,0.1777823120355606,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-13,12,3.51,0.2231746017932891,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-14,15,3.62,0.2896231412887573,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-15,20,3.65,0.191273346543312,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-16,21,3.65,0.2246355563402175,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-17,16,3.65,0.2652324140071868,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-18,1,3.66,0.170332133769989,FT,UMP-45_Momentum,Halo,Danger_Zone
-19,2,3.92,0.1545876860618591,FT,UMP-45_Momentum,Halo,Danger_Zone
-20,3,4.02,0.2140757590532302,FT,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-21,4,4.06,0.1807150244712829,FT,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-22,12,4.06,0.1837366223335266,FT,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-23,9,4.06,0.1906874179840087,FT,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-24,20,4.15,0.1707288175821304,FT,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-25,24,4.21,0.1775489896535873,FT,MP5-SD_Phosphor,Halo,Danger_Zone
-26,30,4.22,0.1506036818027496,FT,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-27,1,4.31,0.1324189752340316,MW,UMP-45_Momentum,Halo,Danger_Zone
-28,3,4.55,0.1188924908638,MW,UMP-45_Momentum,Halo,Danger_Zone
-29,2,4.55,0.1433862149715423,MW,UMP-45_Momentum,Halo,Danger_Zone
-30,4,4.55,0.1464784741401672,MW,UMP-45_Momentum,Halo,Danger_Zone
-31,1,4.76,0.1351420581340789,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-32,2,4.77,0.1378668099641799,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-33,3,4.84,0.1268730014562606,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-34,4,4.88,0.1468312591314315,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-35,5,5.01,0.1351576298475265,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-36,6,5.03,0.1450435668230056,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-37,7,5.26,0.1411142647266387,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-38,5,5.33,0.1352609694004058,MW,UMP-45_Momentum,Halo,Danger_Zone
-39,6,5.4,0.1405133306980133,MW,UMP-45_Momentum,Halo,Danger_Zone
-40,10,5.54,0.116395354270935,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-41,11,5.54,0.119674913585186,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-42,12,5.54,0.1385657638311386,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-43,13,5.61,0.1359345316886901,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-44,7,5.97,0.0729739516973495,MW,UMP-45_Momentum,Halo,Danger_Zone
-45,8,6.31,0.0940717905759811,MW,UMP-45_Momentum,Halo,Danger_Zone
-46,15,6.46,0.0747363045811653,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-47,16,6.79,0.0766262561082839,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-48,19,7.48,0.070865549147129,MW,MP5-SD_Phosphor,Halo,Danger_Zone
-49,2,7.97,0.063929870724678,FN,MP5-SD_Phosphor,Halo,Danger_Zone
-50,1,7.97,0.0643178150057792,FN,MP5-SD_Phosphor,Halo,Danger_Zone
-51,3,7.99,0.0681239366531372,FN,MP5-SD_Phosphor,Halo,Danger_Zone
-52,4,8.0,0.0699861198663711,FN,MP5-SD_Phosphor,Halo,Danger_Zone
-53,1,8.02,0.0689965039491653,FN,UMP-45_Momentum,Halo,Danger_Zone
-54,2,8.04,0.0553603470325469,FN,UMP-45_Momentum,Halo,Danger_Zone
-55,5,8.38,0.0679501220583915,FN,MP5-SD_Phosphor,Halo,Danger_Zone
-56,3,8.56,0.0562540516257286,FN,UMP-45_Momentum,Halo,Danger_Zone
-57,4,8.6,0.0655681788921356,FN,UMP-45_Momentum,Halo,Danger_Zone
-58,5,8.62,0.0681686401367187,FN,UMP-45_Momentum,Halo,Danger_Zone
-59,6,8.85,0.0432829670608043,FN,UMP-45_Momentum,Halo,Danger_Zone
-60,6,8.95,0.0655093789100646,FN,MP5-SD_Phosphor,Halo,Danger_Zone
-61,7,8.98,0.0463538467884063,FN,UMP-45_Momentum,Halo,Danger_Zone
-62,24,9.12,0.0468234457075595,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-63,27,9.12,0.0488232262432575,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-64,25,9.12,0.0495186820626258,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-65,8,9.12,0.0501919612288475,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-66,23,9.12,0.0511788129806518,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-67,21,9.12,0.0526215732097625,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-68,6,9.12,0.0535089820623397,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-69,4,9.12,0.0542430691421031,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-70,29,9.13,0.0514109879732131,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-71,35,9.41,0.0472335144877433,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-72,39,9.68,0.0517107360064983,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-73,41,9.82,0.0496372021734714,FN,Desert_Eagle_Mecha_Industries,Halo,Danger_Zone
-74,11,10.38,0.0510245487093925,FN,UMP-45_Momentum,Halo,Danger_Zone
-75,14,11.08,0.0500097945332527,FN,UMP-45_Momentum,Halo,Danger_Zone
-76,23,12.35,0.0431131422519683,FN,UMP-45_Momentum,Halo,Danger_Zone
+Coll_ID,Item_ID,Price,Float,Condition,Name,Site,Timestamp,Halo,Collection
+1,1,2.97,0.459713876247406,BS,UMP-45_Momentum,,,Halo,Danger_Zone
+2,1,3.23,0.2142232507467269,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+3,3,3.24,0.1837493926286697,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+4,4,3.24,0.3187140524387359,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+5,2,3.24,0.3190466165542602,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+6,5,3.36,0.2732087671756744,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+7,6,3.37,0.1800091564655303,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+8,8,3.37,0.1824699193239212,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+9,7,3.37,0.2129268646240234,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+10,9,3.38,0.2762645184993743,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+11,10,3.5,0.3174282908439636,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+12,14,3.51,0.1777823120355606,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+13,12,3.51,0.2231746017932891,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+14,15,3.62,0.2896231412887573,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+15,20,3.65,0.191273346543312,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+16,21,3.65,0.2246355563402175,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+17,16,3.65,0.2652324140071868,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+18,1,3.66,0.170332133769989,FT,UMP-45_Momentum,,,Halo,Danger_Zone
+19,2,3.92,0.1545876860618591,FT,UMP-45_Momentum,,,Halo,Danger_Zone
+20,3,4.02,0.2140757590532302,FT,Desert_Eagle_Mecha_Industries,,,Halo,Danger_Zone
+21,4,4.06,0.1807150244712829,FT,Desert_Eagle_Mecha_Industries,,,Halo,Danger_Zone
+22,12,4.06,0.1837366223335266,FT,Desert_Eagle_Mecha_Industries,,,Halo,Danger_Zone
+23,9,4.06,0.1906874179840087,FT,Desert_Eagle_Mecha_Industries,,,Halo,Danger_Zone
+24,20,4.15,0.1707288175821304,FT,Desert_Eagle_Mecha_Industries,,,Halo,Danger_Zone
+25,24,4.21,0.1775489896535873,FT,MP5-SD_Phosphor,,,Halo,Danger_Zone
+26,30,4.22,0.1506036818027496,FT,Desert_Eagle_Mecha_Industries,,,Halo,Danger_Zone
+27,1,4.31,0.1324189752340316,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+28,3,4.55,0.1188924908638,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+29,2,4.55,0.1433862149715423,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+30,4,4.55,0.1464784741401672,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+31,1,4.76,0.1351420581340789,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+32,2,4.77,0.1378668099641799,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+33,3,4.84,0.1268730014562606,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+34,4,4.88,0.1468312591314315,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+35,5,5.01,0.1351576298475265,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+36,6,5.03,0.1450435668230056,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+37,7,5.26,0.1411142647266387,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+38,5,5.33,0.1352609694004058,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+39,6,5.4,0.1405133306980133,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+40,10,5.54,0.116395354270935,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+41,11,5.54,0.119674913585186,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+42,12,5.54,0.1385657638311386,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+43,13,5.61,0.1359345316886901,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+44,7,5.97,0.0729739516973495,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+45,8,6.31,0.0940717905759811,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+46,15,6.46,0.0747363045811653,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+47,16,6.79,0.0766262561082839,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+48,19,7.48,0.070865549147129,MW,MP5-SD_Phosphor,,,Halo,Danger_Zone
+49,1,8.0,0.0566573105752468,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:44,,Danger_Zone
+50,2,8.0,0.0687766224145889,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:44,,Danger_Zone
+51,3,8.0,0.0689965039491653,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:44,,Danger_Zone
+52,12,8.14,0.0850536823272705,MW,UMP-45_Momentum,,,Halo,Danger_Zone
+53,1,8.25,0.0643178150057792,FN,MP5-SD_Phosphor,Halo,2024-03-20 22:27:31,,Danger_Zone
+54,3,8.25,0.0679501220583915,FN,MP5-SD_Phosphor,Halo,2024-03-20 22:27:31,,Danger_Zone
+55,2,8.25,0.0681239366531372,FN,MP5-SD_Phosphor,Halo,2024-03-20 22:27:31,,Danger_Zone
+56,4,8.42,0.0638413876295089,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:44,,Danger_Zone
+57,5,8.53,0.0562540516257286,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:44,,Danger_Zone
+58,6,8.55,0.0655681788921356,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:44,,Danger_Zone
+59,7,8.62,0.0681686401367187,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:44,,Danger_Zone
+60,3,8.72,0.0535018481314182,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:50,,Danger_Zone
+61,1,8.72,0.0592824816703796,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:50,,Danger_Zone
+62,2,8.72,0.0616289302706718,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:50,,Danger_Zone
+63,7,8.73,0.0494467318058013,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:50,,Danger_Zone
+64,9,8.73,0.0511727668344974,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:50,,Danger_Zone
+65,18,8.73,0.0546566434204578,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:59,,Danger_Zone
+66,12,8.73,0.0547538734972476,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:59,,Danger_Zone
+67,8,8.73,0.0547643452882766,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:50,,Danger_Zone
+68,4,8.73,0.0564380064606666,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:50,,Danger_Zone
+69,17,8.73,0.0569528937339782,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:27:59,,Danger_Zone
+70,6,8.92,0.0466786809265613,FN,MP5-SD_Phosphor,Halo,2024-03-20 22:27:31,,Danger_Zone
+71,8,8.98,0.0463538467884063,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:44,,Danger_Zone
+72,38,9.25,0.0511370226740837,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:28:21,,Danger_Zone
+73,43,9.35,0.0518973991274833,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:28:21,,Danger_Zone
+74,54,9.36,0.0489009954035282,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:28:26,,Danger_Zone
+75,50,9.36,0.052345085889101,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:28:26,,Danger_Zone
+76,44,9.36,0.0545646212995052,FN,Desert_Eagle_Mecha_Industries,Halo,2024-03-20 22:28:21,,Danger_Zone
+77,12,9.81,0.0523769967257976,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:51,,Danger_Zone
+78,16,10.38,0.0510245487093925,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:51,,Danger_Zone
+79,19,11.08,0.0500097945332527,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:59,,Danger_Zone
+80,18,11.08,0.0514972917735576,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:51,,Danger_Zone
+81,25,11.22,0.0514584705233573,FN,UMP-45_Momentum,Halo,2024-03-20 22:28:59,,Danger_Zone
+82,28,12.35,0.0431131422519683,FN,UMP-45_Momentum,Halo,2024-03-20 22:29:04,,Danger_Zone
+83,31,16.83,0.0295411087572574,FN,UMP-45_Momentum,Halo,2024-03-20 22:29:04,,Danger_Zone

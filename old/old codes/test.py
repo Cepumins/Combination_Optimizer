@@ -89,5 +89,7 @@ def partition_number(k):
 
         return sorted(list(_partition_number(n, k, [])), key=lambda x: (x[0], x[1], x[2]))
     
-partitions = (partition_number(3))
-print(len(partitions))
+partitions = (partition_number(2))
+print(partitions)
+print(f'Length: {len(partitions)}')
+
