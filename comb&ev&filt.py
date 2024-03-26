@@ -7,7 +7,7 @@ import csv
 #from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 import numpy as np
-from numba import njit
+from numba import jit, njit, vectorize
 
 
 wear = "ALL"
@@ -73,6 +73,7 @@ def print_np_summary(print_data_np, title, data):
     print(print_data)
 
 def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
+
     def adjust_float(float_data, min_float, max_float, data, combo, print_f, split):
         range_reached = False
         impossible_range = False
@@ -177,6 +178,7 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
             print_summary(float_data, "Float adjustment")
         return float_data, range_reached
     
+
     def single_replacement(single_data, min_float, max_float, data, combo, print_s):
         data = data[~data['DF_ID'].isin(single_data['DF_ID'])]
 
@@ -221,49 +223,59 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
             print_summary(single_data, "Single replacement")
         return single_data
     
-    def new_single_replacement(single_data, min_float, max_float, data, combo, print_s):
-        data = data[~data['DF_ID'].isin(single_data['DF_ID'])]
+    def new_single_replacement(single_data, min_float, max_float, data_np, combo):
+        DF_ID_idx, Price_idx, Float_idx, Collection_idx = 0, 1, 2, 3  # Indexes of columns in your NumPy arrays
 
-        #single_data = single_data.sort_values(by=['Price', 'Float'], ascending=[False, False])
-        #temp_single_data = single_data.copy()
-        #print('Single data: ')
-        #print(single_data)
-        for _, row in single_data.iterrows():
-            data = data[data['Price'] < row['Price']]
-            if data.empty:
+        sorted_indices = np.lexsort((-single_data[:, Float_idx], -single_data[:, Price_idx]))
+        single_data_np = single_data[sorted_indices]
+        
+        # Filter out the items from data_np that are in single_data_np based on DF_ID
+        data_np = data_np[~np.isin(data_np[:, DF_ID_idx], single_data_np[:, DF_ID_idx])]
+
+        used_replacements = set()  # Track DF_IDs used as replacements
+
+        for row in single_data_np:
+            #print(f'Considering now {row[DF_ID_idx]}')
+            available_data_np = data_np[~np.isin(data_np[:, DF_ID_idx], list(used_replacements) + list(single_data_np[:, DF_ID_idx]))]
+
+            data_price_filtered = available_data_np[available_data_np[:, Price_idx] < row[Price_idx]]
+            if data_price_filtered.size == 0:
                 #print("No more items to consider after price filtering.")
-                break  # Exit the loop as there are no more items to process
-            #print(data)
-            total_single_data_float = single_data['Float'].sum()
-            single_data_float_with_9 = total_single_data_float - row['Float']
+                break  # Exit if there are no items cheaper than the current one
+
+            total_single_data_float = np.sum(single_data_np[:, Float_idx])
+            single_data_float_with_9 = total_single_data_float - row[Float_idx]
             min_item_float = min_float * 10 - single_data_float_with_9
             max_item_float = max_float * 10 - single_data_float_with_9
-            
-            #temp_data = data.copy()
-            #filtered_temp_data = temp_data[(temp_data['Float'] > min_item_float) & (temp_data['Float'] < max_item_float)] # Pre-filter temp_data based on float constraints before the loop
-            mask = (data['Float'] > min_item_float) & \
-            (data['Float'] < max_item_float)
-            if len(combo) > 1: # Include collection filtering conditions
-                mask &= (data['Collection'] == row['Collection'])
 
-            filt_data = data.loc[mask]
-            if not filt_data.empty:
-                #best_replacement_row = filtered_temp_data.loc[filtered_temp_data['Price'].idxmin()] # Find the row in filtered_temp_data with the lowest 'Price'
-                sorted_data = filt_data.sort_values(by=['Price', 'Float'], ascending=[True, True])
-                best_replacement_row = sorted_data.iloc[0]
+            # Apply float constraints
+            float_mask = (data_price_filtered[:, Float_idx] > min_item_float) & (data_price_filtered[:, Float_idx] < max_item_float)
+            data_float_filtered = data_price_filtered[float_mask]
 
-                o = row['DF_ID']  # The original item's ID you're replacing
-                n = best_replacement_row['DF_ID']  # The replacement item's ID
-                #print(f"Replacing item {o} in  with item {n}")
-                single_data.loc[single_data['DF_ID'] == o, data.columns] = best_replacement_row.values
-                data.loc[data['DF_ID'] == n, data.columns] = row.values
-                #print('New single data: ')
-                #print(single_data)
+            if len(combo) > 1:
+                # Apply collection filter if necessary
+                collection_mask = data_float_filtered[:, Collection_idx] == row[Collection_idx]
+                data_float_filtered = data_float_filtered[collection_mask]
 
-        single_data = single_data.sort_values(by=['Price', 'Float'], ascending=[False, False])
-        if print_s == True:
-            print_summary(single_data, "Single replacement")
-        return single_data
+            if data_float_filtered.size > 0:
+                # Find the best replacement (lowest price and then lowest float)
+                sorted_indices = np.lexsort((data_float_filtered[:, Float_idx], data_float_filtered[:, Price_idx]))
+                best_replacement = data_float_filtered[sorted_indices[0]]
+
+                # Ensure the replacement is not the item itself and has not been used already
+                if best_replacement[DF_ID_idx] != row[DF_ID_idx] and best_replacement[DF_ID_idx] not in used_replacements:
+                    #print(f'Replacing item {row[DF_ID_idx]} with {best_replacement[DF_ID_idx]}')
+                    # Replace the item in single_data_np with the best replacement
+                    single_data_np[single_data_np[:, DF_ID_idx] == row[DF_ID_idx]] = best_replacement
+
+                    # Mark the replacement as used
+                    used_replacements.add(best_replacement[DF_ID_idx])
+
+        # Sort single_data_np by Price and Float in descending order before returning
+        sorted_indices = np.lexsort((-single_data_np[:, Float_idx], -single_data_np[:, Price_idx]))
+        sorted_single_data_np = single_data_np[sorted_indices]
+        #print(sorted_single_data_np)
+        return sorted_single_data_np
     
     def pair_replacement(pair_data, min_float, max_float, data, combo, print_p):
         data_reduced = data[['DF_ID', 'Price', 'Float', 'Collection']]
@@ -444,7 +456,7 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
     
     wear_starting_time = time.time() # start the timer
     adjust_float_to_range_function_end_time = 0
-    single_replacement_function_end_time = 0
+    single_def_elapsed_time = 0
     pair_replacement_function_end_time = 0
 
     if len(combo) == 1:
@@ -491,21 +503,19 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
     if range_reached:
         single_replacement_function_start_time = time.time()
         #print_summary(best_data, 'Before: ')
-        best_data = single_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_s = print_single)
-        
-        #single_data_np = best_data[['DF_ID', 'Price', 'Float', 'Collection']].to_numpy()
-        #print(single_data_np)
-        #data_np = data[['DF_ID', 'Price', 'Float', 'Collection']].to_numpy()
-        #best_data_np = new_single_replacement(single_data_np, min_floatWear, max_floatWear, data_np, combo, print_s = print_single)
-        #best_data = new_single_replacement(best_data, min_floatWear, max_floatWear, data, combo, print_s = print_single)
-        #print_np_summary(best_data_np, 'Single', data)
-        #df_ids = best_data_np[:, 0]
-        #best_data = data[data['DF_ID'].isin(df_ids)].copy()
-        #print('After: ')
-        #print(best_data)
+        #best_data = single_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_s = print_single)
+        #'''
+        ids = set(best_data['DF_ID'])
+        data_np = data[['DF_ID', 'Price', 'Float', 'Collection']].to_numpy()
+        best_data_np = np.array([row for row in data_np if row[0] in ids])
+        best_data_np = new_single_replacement(best_data_np, min_floatWear, max_floatWear, data_np, combo)
+        ids = best_data_np[:, 0]
+        best_data = data[data['DF_ID'].isin(ids)]
+        best_data = best_data.sort_values(by=['Price', 'Float'], ascending=[False, False])
+        #'''
         #print_summary(best_data, 'After: ')
-        single_replacement_function_end_time = time.time() - single_replacement_function_start_time
-        #single_replacement_function_elapsed_time = single_replacement_function_elapsed_time + single_replacement_function_end_time
+        single_def_elapsed_time = time.time() - single_replacement_function_start_time
+
         pair_replacement_function_start_time = time.time()
         #best_data = pair_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_p = print_pair)
         best_data = new_pair_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_p = print_pair)
@@ -523,8 +533,8 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
         ep_percentage = "Null"
         #print(f"Float range not reached for {wear_outcome}")
 
-    wear_ending_time = time.time() # end the timer
-    time_for_wear_outcome = wear_ending_time - wear_starting_time # Calculate and print the time required
+    #wear_ending_time = time.time() # end the timer
+    time_for_wear_outcome = time.time() - wear_starting_time # Calculate and print the time required
     
     result_row = pd.DataFrame({ # Add the results for the current wear outcome to the results DataFrame
         "Wear": [wear_outcome],
@@ -540,7 +550,7 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
     })
     #print(f"Time required for wear {wear_outcome}: {int(time_for_wear_outcome // 60):02d}:{int(time_for_wear_outcome % 60):02d}")
 
-    return result_row, best_data, time_for_wear_outcome, adjust_float_to_range_function_end_time, single_replacement_function_end_time, pair_replacement_function_end_time
+    return result_row, best_data, time_for_wear_outcome, adjust_float_to_range_function_end_time, single_def_elapsed_time, pair_replacement_function_end_time
 
 def process_wear_outcome_wrapper(args):
     wear_outcome, wear_data, data, combo, split = args
@@ -996,8 +1006,8 @@ def main(all_collections, rarities):
     comb_main(all_collections, rarities)
 
 #all_collections = ["Danger_Zone"]
-all_collections = ["Clutch"]
-#all_collections = ["Danger_Zone", "Clutch"]
+#all_collections = ["Clutch"]
+all_collections = ["Danger_Zone", "Clutch"]
 #all_collections = ["Danger_Zone"]
 #all_collections = ["Revolution"]
 #all_collections = ["Danger_Zone", "Revolution"]

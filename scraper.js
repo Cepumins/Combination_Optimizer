@@ -213,8 +213,8 @@ async function updatePricesCSV(itemNameUnd, collection, quality, otherWearResult
     }
 }
 
-async function scrapeOtherWears(page, source) {
-    const otherWearResults = await page.evaluate((source) => {
+async function scrapeOtherWears(page, source, exchangeRatio) {
+    const otherWearResults = await page.evaluate((source, exchangeRatio) => {
         const items = [];
         let conditionSelector, priceSelector;
 
@@ -228,29 +228,42 @@ async function scrapeOtherWears(page, source) {
         } else if (source === 'CS2GOsteam') {
             conditionSelector = 'span.allName';
             priceSelector = '.price-list .price-list-item .price'; 
+        } else if (source === 'Buff') {
+            conditionSelector = 'div.scope-btns > a';
+            priceSelector = '.price-list .price-list-item .price'; 
         }
 
         const conditionElements = document.querySelectorAll(conditionSelector);
         conditionElements.forEach((conditionElement) => {
-            const condition = conditionElement.textContent.trim();
-            if (!condition.includes("StatTrak")) {
-                let priceElement;
+            let condition, price, fullText, priceElement;
+            fullText = conditionElement.textContent.trim();
+            if (!fullText.includes("StatTrak")) {
+                let cleanPrice;
                 if (source === 'Halo') {
+                    condition = fullText;
                     priceElement = conditionElement.nextElementSibling.querySelector(priceSelector);
-                } else {
-                    // For 'Go' and 'ste', find the price element relative to the condition element
+                } else if (source === 'CS2GO' || source === 'CS2GOsteam') {
+                    condition = fullText;
                     priceElement = conditionElement.closest('li').querySelector(priceSelector);
+                } else if (source === 'Buff') {
+                    [condition, price] = fullText.split('¥').map(part => part.trim()); // For 'Buff', split the fullText to get condition and price
+                    cleanPrice = ((price.replace(/[^0-9.]+/g, "")) / exchangeRatio).toFixed(6);
                 }
 
-                if (priceElement) {
-                    const price = priceElement.textContent.trim();
-                    const cleanPrice = price.replace(/[^0-9.]+/g, "");
-                    items.push(`${condition}: ${cleanPrice}`);
+                if (priceElement && source !== 'Buff') {
+                    price = priceElement.textContent.trim();
+                    cleanPrice = price.replace(/[^0-9.]+/g, "");
+                }
+        
+                // Clean the price and add to items array
+                if (price) {
+                    //const cleanPrice = price.replace(/[^0-9.]+/g, ""); // Remove non-numeric characters except decimal points
+                    items.push(`${condition}: ${cleanPrice}`); // Add condition and cleaned price to the items array
                 }
             }
         });
         return items;
-    }, source);
+    }, source, exchangeRatio);
     return otherWearResults;
 }
 
@@ -290,7 +303,7 @@ async function timestampCheck(directoryPath, item, wear, timestampCutoffTime) {
     return false; // Do not skip
 }
 
-async function scrapeItems(page, item, wear, source, totalItems, width, height) {
+async function scrapeItems(page, item, wear, source, totalItems, exchangeRatio, width, height) {
     const startTime = new Date();
     const seenFloats = new Set();
     let itemIndex = 1;
@@ -303,6 +316,9 @@ async function scrapeItems(page, item, wear, source, totalItems, width, height) 
     } else if (source === 'CS2GO') {
         floatSelector = 'p.wear';
         priceSelector = 'span.value.price[style="font-size: 18px;"]';
+    } else if (source === 'Buff') {
+        floatSelector = '.wear-value';
+        priceSelector = '.f_Strong';
     }
 
     while (true) {
@@ -310,7 +326,7 @@ async function scrapeItems(page, item, wear, source, totalItems, width, height) 
         // Retrieve values for each visible item using selectors passed as parameters
         const floats = await page.$$eval(floatSelector, elements => elements.map(el => el.textContent));
         const prices = await page.$$eval(priceSelector, elements => elements.map(el => el.textContent));
-
+        
         let newItemsAdded = false;
         const timestamp = getCurrentTimestamp();
 
@@ -318,7 +334,13 @@ async function scrapeItems(page, item, wear, source, totalItems, width, height) 
             if (!seenFloats.has(float)) {
                 seenFloats.add(float);
 
-                const cleanPrice = prices[index].replace(/[^0-9.]+/g, "");
+                let cleanPrice;
+                if (source === 'Buff') {
+                    cleanPrice = ((prices[index + 1].replace(/[^0-9.]+/g, "")) / exchangeRatio).toFixed(6);
+                    float = float.replace(/[^0-9.]+/g, "");
+                } else {
+                    cleanPrice = prices[index].replace(/[^0-9.]+/g, "");
+                }
                 records.push({
                     index: itemIndex++,
                     price: cleanPrice,
@@ -374,13 +396,16 @@ async function initializePage(page, link) {
 async function fetchItemDetails(page, item, wear, source, itemSelector, itemCountSelector, conditionMappings) {
     let match = null;
     let totalItems = 0;
+    let exchangeRatio = 0;
 
     while (!match && totalItems === 0) {
         try {
             // Use the new selector to fetch the item name and condition
-            const itemNameAndCondition = await page.$eval(itemSelector, el => el.textContent);
-            //console.log(`Test name: ${itemNameAndCondition}`)
+            const itemNameAndCondition = await page.$eval(itemSelector, el => el.textContent.trim());
+
+            //console.log(`Test name: ${itemNameAndCondition}`);
             match = itemNameAndCondition.match(/^(.*?\s\|\s.*?)\s\((.*?)\)$/);
+            //console.log(`Match: ${match}`);
 
             if (source === 'Halo') {
                 const totalItemsText = await page.$eval(itemCountSelector, el => el.innerText);
@@ -389,6 +414,14 @@ async function fetchItemDetails(page, item, wear, source, itemSelector, itemCoun
                 totalItems = 20;
             } else if (source === 'Buff') {
                 totalItems = 10;
+                const combinedPrice = await page.$eval('.detail-summ .f_Strong', el => el.textContent.trim());
+                const cnyPrice = combinedPrice.split('(')[0].trim();
+                const usdPrice = combinedPrice.split('(')[1].trim().slice(0, -1);
+
+                const cnyPriceClean = cnyPrice.replace(/[^0-9.]+/g, "");
+                const usdPriceClean = usdPrice.replace(/[^0-9.]+/g, "");
+                exchangeRatio = (cnyPriceClean / usdPriceClean).toFixed(6);
+                //console.log(`Exchange ratio: ${exchangeRatio}`);
             }
         } catch (error) {
             console.log('Error fetching details, retrying...', error);
@@ -402,21 +435,10 @@ async function fetchItemDetails(page, item, wear, source, itemSelector, itemCoun
 
     if (match) {
         // Get item name and wear
-        /*
-        let itemName, itemNameUnd, itemConditionAbbr, itemConditionFull;
-        if (source === 'Halo') {
-            itemName = match[1];
-            itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_'); // Replace '| ' with '';
-            itemConditionFull = match[2];
-            //itemConditionAbbr = conditionMappings[itemConditionFull];
-        } else if (source === 'CS2GO') {
-            itemName = match[1]; //+ ' | ' + match[2]; // Combined to include the '|' in the name
-            itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_'); // Replace '| ' with '' and spaces with '_'
-            itemConditionFull = match[2];
-        }*/
-        const itemName = match[1];
+        const itemName = match[1].trim();
         let itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_');
-        const itemConditionFull = match[2];
+        console.log(`itemNameUnd: (${itemNameUnd})`);
+        const itemConditionFull = match[2].trim();
         let itemConditionAbbr = conditionMappings[itemConditionFull];
         
         console.log(`Name: ${itemName}`);
@@ -431,11 +453,11 @@ async function fetchItemDetails(page, item, wear, source, itemSelector, itemCoun
         }
         
         //return { itemName, itemNameUnd, itemConditionFull, itemConditionAbbr };
-        return totalItems;
     } else {
         console.log('Item name and condition not found');
-        return null;
+        //return null;
     }
+    return { totalItems, exchangeRatio };
 }
 
 async function scrapeHalo(page, item, wear, id) {
@@ -448,50 +470,10 @@ async function scrapeHalo(page, item, wear, id) {
     const source = 'Halo'
     console.log(source)
 
-    //let match;
-    //let totalItems = 0;
-    
-    /*
-    while (!match || totalItems === 0) { // get total item count
-        try {
-            const itemNameAndCondition = await page.$eval('h3.text-textPrimary.font-medium.sm\\:text-2xl.text-lg', el => el.textContent);
-            match = itemNameAndCondition.match(/^(.*?)\s\((.*?)\)$/);
-    
-            const totalItemsText = await page.$eval('h4.text-xl.text-textPrimary', el => el.innerText);
-            totalItems = parseInt(totalItemsText.match(/\d+/)[0]); // Retrieve the total number of items
-        } catch (error) {
-            console.log('Error fetching details, retrying...', error);
-        }
-    
-        if (!match || totalItems === 0) {
-            console.log('Retrying due to unsatisfied conditions (match or totalItems)');
-            await new Promise(resolve => setTimeout(resolve, 500)); // Wait for 1 second before retrying
-        }
-    }
-
-    if (match) { // get item name and wear
-        const itemName = match[1];
-        let itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_'); // Replace '| ' with '';
-        const itemConditionFull = match[2];
-        let itemConditionAbbr = conditionMappings[itemConditionFull];
-
-        console.log(`Name: ${itemName}`);
-        console.log(`Wear: ${itemConditionAbbr}`);
-        //csvFileName = `${itemNameUnd}_(${itemConditionAbbr}).csv`;
-        if (itemNameUnd === item && itemConditionAbbr.toLowerCase() === wear) {
-            console.log('The item name and wear conditions match.');
-        } else {
-            console.log('THE ITEM NAME AND WEAR CONDITIONS DO NOT MATCH!!!');
-        }
-    } else {
-        console.log('Item name and condition not found');
-    }
-
-    console.log(`Items: ${totalItems}`)
-    */
+    let useless;
     const totalItems = await fetchItemDetails(page, item, wear, source, 'h3.text-textPrimary.font-medium.sm\\:text-2xl.text-lg', 'h4.text-xl.text-textPrimary', conditionMappings);
 
-    const otherWearResults = await scrapeOtherWears(page, source);
+    const otherWearResults = await scrapeOtherWears(page, source, useless);
     //console.log(otherWearResults)
 
     updatePricesCSV(item, collection, quality, otherWearResults, source); // update the prices for other wears in the pricesCSV
@@ -499,7 +481,7 @@ async function scrapeHalo(page, item, wear, id) {
     const cookieButtonXPath = '//*[@id="bodyEle"]/div[1]/div[2]/div/p[4]/button/span';
     await acceptCookies(page, cookieButtonXPath);
 
-    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, width, height)
+    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, useless, width, height)
     await waitForRandomTimeout(page, 250, 750);
     //console.log(results)
     
@@ -516,47 +498,10 @@ async function scrapeCS2GO(page, item, wear) {
     const source = 'CS2GO'
     console.log(source)
 
-    //let match;
-    //let totalItems = 20;
-
-    /*
-    while (!match) {
-        try { // Use the new selector to fetch the item name and condition
-            const itemNameAndCondition = await page.$eval('div.item-name.detail-item > span', el => el.textContent);
-            match = itemNameAndCondition.match(/^(.*?)\s\|\s(.*?)\s\((.*?)\)$/);
-    
-        } catch (error) {
-            console.log('Error fetching details, retrying...', error);
-        }
-    
-        if (!match) {
-            console.log('Retrying due to unsatisfied conditions (match)');
-            await new Promise(resolve => setTimeout(resolve, 500)); // Wait for 1 second before retrying
-        }
-    }
-    
-    if (match) {
-        // get item name and wear
-        const itemName = match[1] + ' | ' + match[2]; // Combined to include the '|' in the name
-        let itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_'); // Replace '| ' with '';
-        const itemConditionFull = match[3];
-        let itemConditionAbbr = conditionMappings[itemConditionFull];
-    
-        console.log(`Name: ${itemName}`);
-        console.log(`Wear: ${itemConditionAbbr}`);
-        //csvFileName = `${itemNameUnd}_(${itemConditionAbbr}).csv`;
-        if (itemNameUnd === item && itemConditionAbbr.toLowerCase() === wear) {
-            console.log('The item name and wear conditions match.');
-        } else {
-            console.log('THE ITEM NAME AND WEAR CONDITIONS DO NOT MATCH!!!');
-        }
-    } else {
-        console.log('Item name and condition not found');
-    }*/
     let useless;
     const totalItems = await fetchItemDetails(page, item, wear, source, 'div.item-name.detail-item > span', useless, conditionMappings);
 
-    const goResults = await scrapeOtherWears(page, source);
+    const goResults = await scrapeOtherWears(page, source, useless);
     //console.log(goResults)
     updatePricesCSV(item, collection, quality, goResults, source);
 
@@ -567,11 +512,40 @@ async function scrapeCS2GO(page, item, wear) {
     const cookieButtonXPath = '//*[@id="app"]/div[4]/div/div[2]/div[2]';
     await acceptCookies(page, cookieButtonXPath);
 
-    await waitForRandomTimeout(page, 500, 1500)
+    await waitForRandomTimeout(page, 250, 1000)
 
-    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, width, height)
-    await waitForRandomTimeout(page, 250, 1500);
+    const results = await scrapeItems(page, item, wear.toUpperCase(), source, useless, totalItems, width, height)
+    await waitForRandomTimeout(page, 250, 1000);
     return results
+}
+
+async function scrapeBuff(page, item, wear, id) {
+    const link = `https://buff.163.com/goods/${id}#tab=selling&page_num=1`;
+    await page.goto(link, {waitUntil: 'networkidle0', timeout: 60000});
+
+    const { width, height } = await initializePage(page, link);
+
+    const source = 'Buff';
+    console.log(source);
+
+    let useless;
+    const { totalItems, exchangeRatio } = await fetchItemDetails(page, item, wear, source, '.detail-header .detail-cont h1', useless, conditionMappings);
+    
+    //console.log('gets here');
+    //await waitForRandomTimeout(page, 30000, 30000);
+
+    const otherWearResults = await scrapeOtherWears(page, source, exchangeRatio);
+    //console.log(otherWearResults);
+
+    //await waitForRandomTimeout(page, 30000, 30000);
+
+    updatePricesCSV(item, collection, quality, otherWearResults, source); // update the prices for other wears in the pricesCSV
+
+    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, exchangeRatio, width, height)
+    await waitForRandomTimeout(page, 250, 750);
+    //console.log(results)
+    
+    return results;
 }
 
 (async () => {

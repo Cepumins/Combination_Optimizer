@@ -267,42 +267,6 @@ async function scrapeOtherWears(page, source, exchangeRatio) {
     return otherWearResults;
 }
 
-async function timestampCheck(directoryPath, item, wear, timestampCutoffTime) {
-    const csvFileNameTestTimestamp = `${item}_(${wear.toUpperCase()}).csv`;
-    const filePathTestTimestamp = path.join(directoryPath, csvFileNameTestTimestamp);
-
-    if (fs.existsSync(filePathTestTimestamp)) {
-        // File exists, so check the most recent timestamp
-        let mostRecentTimestamp = null;
-
-        await new Promise((resolve, reject) => {
-            fs.createReadStream(filePathTestTimestamp)
-                .pipe(csv())
-                .on('data', (row) => {
-                    if (row.Timestamp && row.Site === 'Halo') {
-                        const timestamp = new Date(row.Timestamp);
-                        if (!mostRecentTimestamp || timestamp > mostRecentTimestamp) {
-                            mostRecentTimestamp = timestamp;
-                        }
-                    }
-                })
-                .on('end', () => resolve())
-                .on('error', reject);
-        });
-
-        if (mostRecentTimestamp) {
-            const diffMinutes = (new Date() - mostRecentTimestamp) / (1000 * 60);
-            if (diffMinutes < timestampCutoffTime) {
-                // The most recent timestamp is less than 30 minutes old, return true to indicate skipping
-                //console.log(`Skipping ${item} in ${wear}: Recent entry less than ${timestampCutoffTime} minutes ago.`);
-                return true; // Skip
-            }
-        }
-    }
-
-    return false; // Do not skip
-}
-
 async function scrapeItems(page, item, wear, source, totalItems, exchangeRatio, width, height) {
     const startTime = new Date();
     const seenFloats = new Set();
@@ -402,13 +366,10 @@ async function fetchItemDetails(page, item, wear, source, itemSelector, itemCoun
         try {
             // Use the new selector to fetch the item name and condition
             const itemNameAndCondition = await page.$eval(itemSelector, el => el.textContent.trim());
-            //    return el.textContent.replace(/\s+/g, ' ').trim();
-            //});
-            //itemNameAndCondition = itemNameAndCondition.replace(/\s+/g, ' ');
-            console.log(`Test name: ${itemNameAndCondition}`);
+
+            //console.log(`Test name: ${itemNameAndCondition}`);
             match = itemNameAndCondition.match(/^(.*?\s\|\s.*?)\s\((.*?)\)$/);
-            //match = itemNameAndCondition.match(/^(.*?)\s*\|\s*(.*?)\s*\(\s*(.*?)\s*\)$/);
-            console.log(`Match: ${match}`);
+            //console.log(`Match: ${match}`);
 
             if (source === 'Halo') {
                 const totalItemsText = await page.$eval(itemCountSelector, el => el.innerText);
@@ -417,18 +378,14 @@ async function fetchItemDetails(page, item, wear, source, itemSelector, itemCoun
                 totalItems = 20;
             } else if (source === 'Buff') {
                 totalItems = 10;
-                // Extracting the CNY price
                 const combinedPrice = await page.$eval('.detail-summ .f_Strong', el => el.textContent.trim());
-
                 const cnyPrice = combinedPrice.split('(')[0].trim();
                 const usdPrice = combinedPrice.split('(')[1].trim().slice(0, -1);
 
-                console.log(`CNY Price: ${cnyPrice}`); // Logs: "CNY Price: ¥ 8.42"
-                console.log(`USD Price: ${usdPrice}`); // Logs: "USD Price: ($ 1.17)"
                 const cnyPriceClean = cnyPrice.replace(/[^0-9.]+/g, "");
                 const usdPriceClean = usdPrice.replace(/[^0-9.]+/g, "");
                 exchangeRatio = (cnyPriceClean / usdPriceClean).toFixed(6);
-                console.log(`Exchange ratio: ${exchangeRatio}`);
+                //console.log(`Exchange ratio: ${exchangeRatio}`);
             }
         } catch (error) {
             console.log('Error fetching details, retrying...', error);
@@ -442,18 +399,6 @@ async function fetchItemDetails(page, item, wear, source, itemSelector, itemCoun
 
     if (match) {
         // Get item name and wear
-        /*
-        let itemName, itemNameUnd, itemConditionAbbr, itemConditionFull;
-        if (source === 'Halo') {
-            itemName = match[1];
-            itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_'); // Replace '| ' with '';
-            itemConditionFull = match[2];
-            //itemConditionAbbr = conditionMappings[itemConditionFull];
-        } else if (source === 'CS2GO') {
-            itemName = match[1]; //+ ' | ' + match[2]; // Combined to include the '|' in the name
-            itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_'); // Replace '| ' with '' and spaces with '_'
-            itemConditionFull = match[2];
-        }*/
         const itemName = match[1].trim();
         let itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_');
         console.log(`itemNameUnd: (${itemNameUnd})`);
@@ -472,7 +417,6 @@ async function fetchItemDetails(page, item, wear, source, itemSelector, itemCoun
         }
         
         //return { itemName, itemNameUnd, itemConditionFull, itemConditionAbbr };
-        
     } else {
         console.log('Item name and condition not found');
         //return null;
@@ -494,23 +438,19 @@ async function readItems(page, item, wear, id) {
     let useless;
     const { totalItems, exchangeRatio } = await fetchItemDetails(page, item, wear, source, '.detail-header .detail-cont h1', useless, conditionMappings);
     
-
-    console.log('gets here');
+    //console.log('gets here');
     //await waitForRandomTimeout(page, 30000, 30000);
 
     const otherWearResults = await scrapeOtherWears(page, source, exchangeRatio);
-    console.log(otherWearResults);
+    //console.log(otherWearResults);
 
     //await waitForRandomTimeout(page, 30000, 30000);
 
     updatePricesCSV(item, collection, quality, otherWearResults, source); // update the prices for other wears in the pricesCSV
 
-    //const cookieButtonXPath = '//*[@id="bodyEle"]/div[1]/div[2]/div/p[4]/button/span';
-    //await acceptCookies(page, cookieButtonXPath);
-
     const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, exchangeRatio, width, height)
     await waitForRandomTimeout(page, 250, 750);
-    console.log(results)
+    //console.log(results)
     
     return results;
 }
