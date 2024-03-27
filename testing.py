@@ -21,233 +21,221 @@ def print_summary(print_data, title):
     print_data = print_data.sort_values(by=['Price', 'Float'], ascending=[True, True]).reset_index(drop=True)
     print(print_data)
 
-def pair_replacement(pair_data, min_float, max_float, data, combo, print_p):
-    data_reduced = data[['DF_ID', 'Price', 'Float', 'Collection']].copy() # Use only necessary columns to reduce memory footprint
-    #zero_time_start = time.time()
-    indices = np.triu_indices(len(data_reduced), k=1) # Create all possible index combinations for pairs   
-    df_id_x = data_reduced.iloc[indices[0]]['DF_ID'].values # Get the values for each combination by indexing into the data_reduced DataFrame
-    df_id_y = data_reduced.iloc[indices[1]]['DF_ID'].values
-    price_x = data_reduced.iloc[indices[0]]['Price'].values
-    price_y = data_reduced.iloc[indices[1]]['Price'].values
-    float_x = data_reduced.iloc[indices[0]]['Float'].values
-    float_y = data_reduced.iloc[indices[1]]['Float'].values
-    collection_x = data_reduced.iloc[indices[0]]['Collection'].values
-    collection_y = data_reduced.iloc[indices[1]]['Collection'].values
+def adjust_float(float_data, min_float, max_float, data, combo, print_f, split):
+    range_reached = False
+    impossible_range = False
 
-    tprice = price_x + price_y # Calculate total price and combined float
-    cfloat = float_x + float_y
-
-    #zero_time_end = time.time()
-    #print(f'Time creating np array of combinations: {format_time(zero_time_end-zero_time_start)}')
-
-    data_pairs = pd.DataFrame({ # Create a DataFrame from the numpy arrays
-        'DF_ID_x': df_id_x,
-        'DF_ID_y': df_id_y,
-        'TPrice': tprice,
-        'CFloat': cfloat,
-        'Collection_x': collection_x,
-        'Collection_y': collection_y
-    })
-
-    data_pairs.sort_values(by=['TPrice', 'CFloat'], ascending=[True, True], inplace=True) # Sort values by total price and combined float in ascending orderv
-    data_pairs.reset_index(drop=True, inplace=True)
-    #print(data_pairs)
-
-    improvement_found = True
-    #last_imporvement_time = time.time()
-
-    while improvement_found:
-        test_start_time = time.time()
-        #print(f'Rechecking improvement possibility')
-        improvement_found = False
-
-        pair_data_IDs_set = set(pair_data['DF_ID'])
-        #filt_data_pairs = data_pairs.copy()
-        filt_data_pairs = data_pairs[~data_pairs['DF_ID_x'].isin(pair_data_IDs_set) & ~data_pairs['DF_ID_y'].isin(pair_data_IDs_set)]
-
-        pair_data_float = pair_data['Float'].sum()
-        fair_price = pair_data.iloc[0]['Price'] + pair_data.iloc[1]['Price']
-        filt_data_pairs = filt_data_pairs[filt_data_pairs['TPrice'] < fair_price]
-
-        minimal_float_of_2_items = min_float * 10 - pair_data_float
-        maximal_float_of_2_items = max_float * 10 - pair_data_float
-
-        #est_end_time = time.time() - test_start_time
-        #zero_time += test_end_time
+    def within_range(value):
+        return min_float < value < max_float
+    if within_range(float_data['Float'].mean()):
+        #print('Already in range')
+        range_reached = True
+    
+    if range_reached == False: # checks the possibility of this combination
+        minimal_item_float = data['Float'].min()
+        maximal_item_float = data['Float'].max()
+        if maximal_item_float < min_float or minimal_item_float > max_float:
+            #print("Outside float range")
+            impossible_range = True
+            #break
+        else: # checks the possibility by taking lowest/highest 10 floats
+            data_sorted = data.sort_values(by='Float', ascending=False)
+            #print(split)
+            if split == [10]:
+                #print('Calculating mean without filtering')
+                maximal_item_float = data_sorted.head(10)['Float'].mean() # average 'Float' of the first 10 items
+                minimal_item_float = data_sorted.tail(10)['Float'].mean() # average 'Float' of the last 10 items
+            else:
+                #print('Calculating mean with filtering')
+                maximal_floats = []
+                minimal_floats = []
+                for collection, count in zip(combo, split):
+                    collection_data = data_sorted[data_sorted['Collection'] == collection]
+                    maximal_floats.append(collection_data.head(count)['Float'])
+                    minimal_floats.append(collection_data.tail(count)['Float'])
+                #print(f'Maximal floats: \n{maximal_floats}')
+                #print(f'Minimal floats: \n{minimal_floats}')
+                maximal_item_float = pd.concat(maximal_floats).mean()
+                minimal_item_float = pd.concat(minimal_floats).mean()
+                
+            #print(minimal_item_float)
+            if maximal_item_float < min_float or minimal_item_float > max_float:
+                #print("Outside float range")
+                impossible_range = True
+            #break
+                
+    adjust_float_start_time = time.time()
+    while not range_reached and not impossible_range:
+        adjust_float_elapsed_time = time.time() - adjust_float_start_time
+        if adjust_float_elapsed_time > 0.5:
+            print('Timed out')
+            impossible_range = True
+            break
+        #print('loop from start')
         
+        old_mean = float_data['Float'].mean()
+        if old_mean < min_float:
+            float_data = float_data.sort_values(by='Float', ascending=True)
+            #data = data.sort_values(by='Float', ascending=False)
+            data = data_sorted
+        else:
+            float_data = float_data.sort_values(by='Float', ascending=False)
+            #data = data.sort_values(by='Float', ascending=True)
+            data = data_sorted.iloc[::-1].reset_index(drop=True)
 
-        for row1, row2 in itertools.combinations(pair_data.itertuples(), 2):
-            pair_price = row1.Price + row2.Price
-            pair_float = row1.Float + row2.Float
-
-            min_items_float = minimal_float_of_2_items + pair_float
-            max_items_float = maximal_float_of_2_items + pair_float
-
-            mask = (filt_data_pairs['TPrice'] < pair_price) & \
-                (filt_data_pairs['CFloat'] > min_items_float) & \
-                (filt_data_pairs['CFloat'] < max_items_float)
-            if len(combo) > 1: # Include collection filtering conditions
-                row1_collection = row1.Collection
-                row2_collection = row2.Collection
-                mask &= ( 
-                    ((filt_data_pairs['Collection_x'] == row1_collection) & (filt_data_pairs['Collection_y'] == row2_collection)) |
-                    ((filt_data_pairs['Collection_x'] == row2_collection) & (filt_data_pairs['Collection_y'] == row1_collection))
-                )
-            
-            valid_pairs = filt_data_pairs.loc[mask]  
-
-            if not valid_pairs.empty:
-                best_pair = valid_pairs.iloc[0]
-                #imporvement_time = time.time() - last_imporvement_time
-                #last_imporvement_time = time.time()
-                o1, o2 = row1.DF_ID, row2.DF_ID
-                n1, n2 = best_pair['DF_ID_x'], best_pair['DF_ID_y']
-                # remove o1 and o2 from pair_data and add n1 and n2
-                improvement_found = True
-                #print(f"Replacing IDs {o1} and {o2} with ID {n1} and ID {n2}, {format_time(imporvement_time)}")
-                #print(f'Current pair cost: {round(pair_price, 2)}, Best pair cost: {round(best_pair["TPrice"], 2)}')
-                mask = ~pair_data['DF_ID'].isin([o1, o2])
-                pair_data_filtered = pair_data.loc[mask].to_numpy()
-                new_data = data[data['DF_ID'].isin([n1, n2])].to_numpy() # Find the data to append and convert it to a NumPy array
-                pair_data_combined = np.vstack((pair_data_filtered, new_data)) # Append the data using NumPy
-                sorted_indices = np.lexsort((-pair_data_combined[:, 4], -pair_data_combined[:, 3])) # Sort the combined data, which is now a NumPy array
-                pair_data_sorted = pair_data_combined[sorted_indices]
-                pair_data = pd.DataFrame(pair_data_sorted, columns=pair_data.columns) # Convert the sorted NumPy array back to a DataFrame
-                #print('New pair_data: ')
-                #print(pair_data)
-                #last_imporvement_time = time.time()
+        for _, row in float_data.iterrows():
+            if range_reached:
                 break
+            #print(f'Checking row: {row}')
+            old_mean = float_data['Float'].mean()
+            old_distance = abs(max_float - old_mean) + abs(min_float - old_mean)
+            lowest_distance = old_distance
 
-    #print(f'Test section time: {format_time(zero_time)}')
-    if print_p == True:
-        print_summary(pair_data, "Pair replacement")
-    return pair_data
+            other_9_item_float = old_mean * 10 - row['Float']
 
-def new_pair_replacement(pair_data_np, min_float, max_float, data_np, combo):
-    #zero_time = 0
-    DF_ID_idx, Price_idx, Float_idx, Collection_idx = 0, 1, 2, 3 # pair_data indexing
-    DF_ID_x_idx, DF_ID_y_idx, TPrice_idx, CFloat_idx, Collection_x_idx, Collection_y_idx = 0, 1, 2, 3, 4, 5 # data_np pairs indexing
-
-    n = len(data_np)
-    indices = np.triu_indices(n, k=1)  # Create all possible index combinations for pairs
-    # Accessing data by index
-    df_id_x = data_np[indices[0], DF_ID_idx]
-    df_id_y = data_np[indices[1], DF_ID_idx]
-    tprice = data_np[indices[0], Price_idx] + data_np[indices[1], Price_idx]
-    cfloat = data_np[indices[0], Float_idx] + data_np[indices[1], Float_idx]
-    # Assuming collections are encoded as integers for simplicity
-    collection_x = data_np[indices[0], Collection_idx]
-    collection_y = data_np[indices[1], Collection_idx]
-
-    # Combine all pair attributes into a single 2D array
-    data_pairs = np.stack((df_id_x, df_id_y, tprice, cfloat, collection_x, collection_y), axis=-1)
-
-    # Sorting by TPrice and then by CFloat
-    sorted_indices = np.lexsort((data_pairs[:, CFloat_idx], data_pairs[:, TPrice_idx]))
-    # Then, apply these indices to data_pairs to get the sorted array
-    sorted_data_pairs = data_pairs[sorted_indices]
-    #print(sorted_data_pairs)
-    #zero_time_end = time.time()
-    #print(f'Time creating np array of combinations: {format_time(zero_time_end-zero_time_start)}')
-
-    #print('Data pairs sorted NP (2D):')
-    #print(sorted_data_pairs)
-    #print(f'Dim: {sorted_data_pairs.ndim}')
-
-    improvement_found = True
-
-    #print('Pair Data NP: ')
-    #print(pair_data_np)
-    #print(f'Dim: {pair_data_np.ndim}')
-    comb_indices = np.array(list(itertools.combinations(range(10), 2)))
-
-    while improvement_found:
-        sorted_indices = np.lexsort((-pair_data_np[:, Float_idx], -pair_data_np[:, Price_idx]))
-        pair_data_np = pair_data_np[sorted_indices]
-        #print(f'Rechecking improvement possibility')
-        improvement_found = False
-
-        pair_data_ids = set(pair_data_np[:, DF_ID_idx])
-
-        #fair_price = pair_data.iloc[0]['Price'] + pair_data.iloc[1]['Price']
-        fair_price = pair_data_np[0, Price_idx] + pair_data_np[1, Price_idx]
-
-        pair_data_ids_np = np.array(list(pair_data_ids))
-
-        # Create boolean masks to identify pairs where both DF_ID_x and DF_ID_y are not in pair_data_ids
-        mask_df_id_x = ~np.isin(sorted_data_pairs[:, DF_ID_x_idx], pair_data_ids_np)
-        mask_df_id_y = ~np.isin(sorted_data_pairs[:, DF_ID_y_idx], pair_data_ids_np)
-
-        # Combine masks to filter out rows where both conditions are met
-        mask_combined = (sorted_data_pairs[:, TPrice_idx] < fair_price) & mask_df_id_x & mask_df_id_y
-        filt_data_pairs_np = sorted_data_pairs[mask_combined]
-
-        pair_data_float = pair_data_np[:, Float_idx].sum()
-
-        minimal_float_of_2_items = min_float * 10 - pair_data_float
-        maximal_float_of_2_items = max_float * 10 - pair_data_float
-
-        pair_prices = pair_data_np[comb_indices[:, 0], Price_idx] + pair_data_np[comb_indices[:, 1], Price_idx]
-        pair_floats = pair_data_np[comb_indices[:, 0], Float_idx] + pair_data_np[comb_indices[:, 1], Float_idx]
-
-        for i, (pair_price, pair_float) in enumerate(zip(pair_prices, pair_floats)):
-            min_items_float = minimal_float_of_2_items + pair_float
-            max_items_float = maximal_float_of_2_items + pair_float
-
-            # Apply filtering conditions to filt_data_pairs_np
-            valid_mask = (filt_data_pairs_np[:, TPrice_idx] < pair_price) & \
-                        (filt_data_pairs_np[:, CFloat_idx] > min_items_float) & \
-                        (filt_data_pairs_np[:, CFloat_idx] < max_items_float)
-
-            # Additional collection-based filtering if needed
+            filt_data = data.copy()
+            filt_data = filt_data[~filt_data['DF_ID'].isin(float_data['DF_ID'])] 
             if len(combo) > 1:
-                # Retrieve collections for the current pair from pair_data_np
-                collection1 = pair_data_np[comb_indices[i, 0], Collection_idx]
-                collection2 = pair_data_np[comb_indices[i, 1], Collection_idx]
+                #print('Filtering by Collection in Float function')
+                filt_data = filt_data[filt_data['Collection'] == row['Collection']]
 
-                # Create masks for collection conditions
-                mask_collection_match = (
-                    (filt_data_pairs_np[:, Collection_x_idx] == collection1) & (filt_data_pairs_np[:, Collection_y_idx] == collection2)
-                ) | (
-                    (filt_data_pairs_np[:, Collection_x_idx] == collection2) & (filt_data_pairs_np[:, Collection_y_idx] == collection1)
-                )
-
-                # Update the valid_mask to include the collection matching condition
-                valid_mask &= mask_collection_match
-
-            valid_pairs = filt_data_pairs_np[valid_mask]
-
-            if valid_pairs.size > 0:
-                # Find the minimum TPrice value
-                min_tprice = np.min(valid_pairs[:, TPrice_idx])
-                # Filter valid_pairs to those with the minimum TPrice
-                min_tprice_pairs = valid_pairs[valid_pairs[:, TPrice_idx] == min_tprice]
-                # Among the pairs with the minimum TPrice, find the one with the lowest CFloat
-                best_pair_idx = np.argmin(min_tprice_pairs[:, CFloat_idx])
-                best_pair = min_tprice_pairs[best_pair_idx]
-
-                # IDs of the pair being replaced
-                o1, o2 = pair_data_np[comb_indices[i, 0], DF_ID_idx], pair_data_np[comb_indices[i, 1], DF_ID_idx]
-                # IDs of the best replacement pair
-                n1, n2 = best_pair[DF_ID_x_idx], best_pair[DF_ID_y_idx]
-                #print(f"Replacing IDs {o1} and {o2} with ID {n1} and ID {n2}")
-                # Remove o1 and o2 from the set of IDs
-                pair_data_ids.remove(o1)
-                pair_data_ids.remove(o2)
-                pair_data_ids.update([n1, n2])
-                #print(f'New pair_data ids: {pair_data_ids}')
-                improvement_found = True
-
-                mask = np.isin(data_np[:, DF_ID_idx], list(pair_data_ids))
-                pair_data_np = data_np[mask]
-                #last_imporvement_time = time.time()
+            # vectorize this bitch
+            filt_data['new_mean'] = (other_9_item_float + filt_data['Float']) / 10
+            filt_data['new_distance'] = abs(max_float - filt_data['new_mean']) + abs(min_float - filt_data['new_mean'])
+            best_replacement_row = filt_data.loc[filt_data['new_distance'].idxmin()]
+            if best_replacement_row['new_distance'] < lowest_distance:
+                #best_replacement = best_replacement_index
+                best_replacement_id = best_replacement_row['DF_ID']
+                n = best_replacement_id
+                o = row['DF_ID']
+                print(f'Replacing {o} with {n}')
+                
+                best_replacement = data.loc[data['DF_ID'] == n].iloc[0]
+                float_data.loc[float_data['DF_ID'] == o, data.columns] = best_replacement.values
+                data.loc[data['DF_ID'] == n, data.columns] = row.values
+                
+                new_mean = (other_9_item_float + best_replacement['Float']) / 10
+                if within_range(new_mean):
+                    #print('Now in range')
+                    range_reached = True
                 break
 
-    #print(f'Total time spent filtering: {format_time(zero_time)}')
-    return pair_data_np
+    float_data = float_data.sort_values(by=['Price', 'Float'], ascending=[False, False])
+    if print_f == True:
+        print_summary(float_data, "Float adjustment")
+    return float_data, range_reached
 
+def new_adjust_float(float_data_np, min_float, max_float, data_np, combo, split):
+    range_reached = False
+    impossible_range = False
+    DF_ID_idx, Price_idx, Float_idx, Collection_idx = 0, 1, 2, 3
 
-df_ids = {65, 64, 63, 60, 57, 49, 28, 4, 2, 1}
+    # Initial range check
+    if min_float < np.mean(float_data_np[:, Float_idx]) < max_float:
+        range_reached = True
+
+    if not range_reached:  # Check possibility of this combination
+        minimal_item_float = np.min(data_np[:, Float_idx])
+        maximal_item_float = np.max(data_np[:, Float_idx])
+        if maximal_item_float < min_float or minimal_item_float > max_float:
+            impossible_range = True
+        else:
+            # Sorting data by 'Float' in descending order
+            #sorted_indices = np.argsort(data_np[:, Float_idx])[::-1]
+            #data_sorted = data_np[sorted_indices]
+            data_sorted_asc = data_np[np.argsort(data_np[:, Float_idx])]
+
+            if split == [10]:
+                minimal_item_float = np.mean(data_sorted_asc[:10, Float_idx])
+                maximal_item_float = np.mean(data_sorted_asc[-10:, Float_idx])
+            else:
+                maximal_floats = []
+                minimal_floats = []
+                for collection, count in zip(combo, split):
+                    # Filtering by collection
+                    #collection_mask = data_sorted[:, Collection_idx] == collection
+                    #collection_data = data_sorted[collection_mask]
+                    collection_data = data_sorted_asc[data_sorted_asc[:, Collection_idx] == collection]
+
+                    # Appending means
+                    minimal_floats.append(np.mean(collection_data[:count, Float_idx]))
+                    maximal_floats.append(np.mean(collection_data[-count:, Float_idx]))
+
+                minimal_item_float = np.mean(minimal_floats)
+                maximal_item_float = np.mean(maximal_floats)
+
+            if maximal_item_float < min_float or minimal_item_float > max_float:
+                impossible_range = True
+
+    # Main loop for adjusting floats
+    #print(f'Float range possible, starting main loop, float_data: ')
+    #print(float_data_np)
+    start_time = time.time()
+    data_sorted_desc = data_sorted_asc[::-1]
+
+    while not range_reached and not impossible_range:
+        # Timeout check
+        if time.time() - start_time > 0.5:
+            impossible_range = True
+            print('Timed out')
+            break
+
+        used_replacements = set()
+        old_mean = np.mean(float_data_np[:, Float_idx])
+        # Decide the sorting order based on the current mean
+        if old_mean < min_float:
+            data_in_order = data_sorted_desc
+            float_data_np = float_data_np[np.argsort(float_data_np[:, Float_idx])]
+        else:
+            data_in_order = data_sorted_asc
+            float_data_np = float_data_np[np.argsort(float_data_np[:, Float_idx])[::-1]]
+
+        float_data_ids = set(float_data_np[:, DF_ID_idx])
+
+        # Vectorized filtering and distance calculations
+        for row in float_data_np:
+            old_mean = np.mean(float_data_np[:, Float_idx])
+            other_float_sum = old_mean * 10 - row[Float_idx]
+
+            # Create a boolean mask for matching Collection_idx values
+            collection_mask = data_in_order[:, Collection_idx] == row[Collection_idx]
+
+            #available_data_np = data_in_order[~np.isin(data_in_order[:, DF_ID_idx], list(used_replacements) + list(float_data_ids))]
+            available_data_mask = (~np.isin(data_in_order[:, DF_ID_idx], list(used_replacements) + list(float_data_ids))) & collection_mask
+
+            # Apply the combined mask to data_in_order to get available_data_np
+            available_data_np = data_in_order[available_data_mask]
+
+            candidate_floats = available_data_np[:, Float_idx]
+            new_means = (other_float_sum + candidate_floats) / 10
+            new_distances = np.abs(max_float - new_means) + np.abs(min_float - new_means)
+
+            # Find the best replacement
+            best_idx = np.argmin(new_distances)
+            best_replacement = available_data_np[best_idx]
+            n = best_replacement[DF_ID_idx]
+            o = row[DF_ID_idx]
+            #print(f'Replacing {o} with {n}')
+            used_replacements.update([o, n])
+            float_data_ids.remove(o)
+            float_data_ids.add(n)
+
+            mask = np.isin(data_np[:, DF_ID_idx], list(float_data_ids))
+            float_data_np = data_np[mask]
+
+            new_mean = np.mean(float_data_np[:, Float_idx])
+
+            if min_float < new_mean < max_float:
+                range_reached = True
+                break
+
+    # Final sorting if needed
+    #sorted_indices = np.lexsort((float_data_np[:, Float_idx], float_data_np[:, Price_idx]))[::-1]
+    #float_data_np = float_data_np[sorted_indices]
+
+    return float_data_np, range_reached
+
+df_ids = {74, 75, 76, 77, 78, 79, 80, 81, 82, 83}
 data_df = data.copy()
 data_df['DF_ID'] = range(1, len(data_df) + 1)
 cols = ['DF_ID'] + [col for col in data_df.columns if col != 'DF_ID']
@@ -261,7 +249,8 @@ print_summary(starting_data, 'Starting')
 
 #best_data = new_single_replacement(starting_data, min_float=, max_float=, data, combo=, False)
 original_def_start_time = time.time()
-og_best_data = pair_replacement(starting_data, min_float=0.140000, max_float=0.153846, data=data_df, combo=['Danger_Zone'], print_p=False)
+og_best_data, range_reached = adjust_float(starting_data, min_float=0.140000, max_float=0.153846, data=data_df, combo=['Danger_Zone'], print_f=False, split = [10])
+print(f'Range reached: {range_reached}')
 original_def_end_time = time.time()
 original_def_time = original_def_end_time - original_def_start_time
 print(f'Original function time: {format_time(original_def_time)}')
@@ -271,7 +260,7 @@ print_summary(og_best_data, 'Original function')
 new_data_df = data_df.copy()
 #print(new_data_df)
 new_def_start_time = time.time()
-new_data_df['Collection'] = new_data_df['Collection'].replace('Danger_Zone', 0)
+#new_data_df['Collection'] = new_data_df['Collection'].replace('Danger_Zone', 0)
 data_np = new_data_df[['DF_ID', 'Price', 'Float', 'Collection']].to_numpy()
 #data_np = new_data_df[['DF_ID', 'Price', 'Float', 'Collection']].astype({'DF_ID': 'float16', 'Price': 'float16', 'Float': 'float16', 'Collection': 'float16'}).to_numpy()
 #print(data_np)
@@ -285,7 +274,8 @@ new_starting_data = np.array([row for row in data_np if row[0] in df_ids])
 #print('New starting data in NP (sorted)')
 #print(sorted_new_starting_data)
 #def_time = time.time()
-new_best_data_np = new_pair_replacement(new_starting_data, min_float=0.140000, max_float=0.153846, data_np=data_np, combo=['Danger_Zone'])
+new_best_data_np, range_reached = new_adjust_float(new_starting_data, min_float=0.140000, max_float=0.153846, data_np=data_np, combo=['Danger_Zone'], split = [10])
+print(f'Range reached: {range_reached}')
 #print(f'new def time itself: {format_time(time.time() - def_time)}')
 #new_best_data_np = njit_single_replacement(sorted_new_starting_data, min_float=0.140000, max_float=0.153846, data_np=data_np, combo=['Danger_Zone'])
 #print('New best data in NP (sorted)')

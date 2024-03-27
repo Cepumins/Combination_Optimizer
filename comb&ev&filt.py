@@ -70,8 +70,66 @@ def print_np_summary(print_data_np, title, data):
     #print_data = print_data.sort_values(by=['Price', 'Float'], ascending=[True, True]).reset_index(drop=True)
     print(print_data)
 
-def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
+def process_wear_outcome(wear_outcome, wear_data, data, combo, split, data_float_sorted):
+    
+    def check_possibility(check_data, min_float, max_float, data_float_sorted, combo, split):
+        range_reached = False
+        impossible_range = False
 
+        '''
+        def within_range(value):
+            return min_float < value < max_float
+        if within_range(float_data['Float'].mean()):
+            #print('Already in range')
+            range_reached = True        
+        '''
+        if min_float < check_data['Float'].mean() < max_float:
+            range_reached =  True
+        
+        if range_reached == False: # checks the possibility of this combination
+            #minimal_item_float = data['Float'].min()
+            #maximal_item_float = data['Float'].max()
+            minimal_item_float = data_float_sorted['Float'].iloc[0]  # Last item in sorted list
+            maximal_item_float = data_float_sorted['Float'].iloc[-1]  
+            if maximal_item_float < min_float or minimal_item_float > max_float:
+                #print("Outside float range")
+                impossible_range = True
+                #break
+            else: # checks the possibility by taking lowest/highest 10 floats
+                #data_sorted = data.sort_values(by='Float', ascending=False)
+                #print(split)
+                if split == [10]:
+                    #print('Calculating mean without filtering')
+                    minimal_item_float = data_float_sorted.head(10)['Float'].mean() # average 'Float' of the first 10 items
+                    maximal_item_float = data_float_sorted.tail(10)['Float'].mean() # average 'Float' of the last 10 items
+                else:
+                    #print('Calculating mean with filtering')
+                    maximal_floats = []
+                    minimal_floats = []
+                    for collection, count in zip(combo, split):
+                        '''
+                        collection_data = data_float_sorted[data_float_sorted['Collection'] == collection]
+                        minimal_floats.append(collection_data.head(count)['Float'])
+                        maximal_floats.append(collection_data.tail(count)['Float'])
+                    #print(f'Maximal floats: \n{maximal_floats}')
+                    #print(f'Minimal floats: \n{minimal_floats}')
+                    minimal_item_float = pd.concat(minimal_floats).mean()
+                    maximal_item_float = pd.concat(maximal_floats).mean()                  
+                        '''
+                        collection_data = data_float_sorted.loc[data_float_sorted['Collection'] == collection, 'Float']
+                        minimal_floats.extend(collection_data.head(count))
+                        maximal_floats.extend(collection_data.tail(count))
+                    
+                    minimal_item_float = np.mean(minimal_floats)
+                    maximal_item_float = np.mean(maximal_floats)
+                    
+                #print(minimal_item_float)
+                if maximal_item_float < min_float or minimal_item_float > max_float:
+                    #print("Outside float range")
+                    impossible_range = True
+
+        return range_reached, impossible_range
+    
     def adjust_float(float_data, min_float, max_float, data, combo, print_f, split):
         range_reached = False
         impossible_range = False
@@ -175,6 +233,200 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
         if print_f == True:
             print_summary(float_data, "Float adjustment")
         return float_data, range_reached
+
+    def new_adjust_float(float_data_np, min_float, max_float, data_np, combo, split):
+        range_reached = False
+        impossible_range = False
+        DF_ID_idx, Price_idx, Float_idx, Collection_idx = 0, 1, 2, 3
+
+        # Initial range check
+        if min_float < np.mean(float_data_np[:, Float_idx]) < max_float:
+            range_reached = True
+
+        if not range_reached:  # Check possibility of this combination
+            minimal_item_float = np.min(data_np[:, Float_idx])
+            maximal_item_float = np.max(data_np[:, Float_idx])
+            if maximal_item_float < min_float or minimal_item_float > max_float:
+                impossible_range = True
+            else:
+                # Sorting data by 'Float' in ascending order
+                data_sorted_asc = data_np[np.argsort(data_np[:, Float_idx])]
+
+                if split == [10]:
+                    minimal_item_float = np.mean(data_sorted_asc[:10, Float_idx])
+                    maximal_item_float = np.mean(data_sorted_asc[-10:, Float_idx])
+                else:
+                    maximal_floats = []
+                    minimal_floats = []
+                    #print('error here')
+                    indices = list(range(len(combo)))
+                    for collection, count in zip(indices, split):
+                        #print(f'Split is: {split}')
+                        #print(f'Now doing {collection}, which has {count} items')
+                        # Filtering by collection
+                        #collection_mask = data_sorted[:, Collection_idx] == collection
+                        #collection_data = data_sorted[collection_mask]
+                        collection_data = data_sorted_asc[data_sorted_asc[:, Collection_idx] == collection]
+                        #print('Available collection data: ')
+                        #print(collection_data)
+
+                        # Appending means
+                        #minimal_floats.append(np.mean(collection_data[:count, Float_idx]))
+                        #maximal_floats.append(np.mean(collection_data[-count:, Float_idx]))
+                        minimal_floats.append(collection_data[:count, Float_idx])
+                        maximal_floats.append(collection_data[-count:, Float_idx])
+
+                        #print('Appended these minimal floats: ')
+                        #print(minimal_floats)
+                        #print('Appended these maximal floats: ')
+                        #print(maximal_floats)
+
+                    all_minimal_floats = np.concatenate(minimal_floats)
+                    minimal_item_float = np.mean(all_minimal_floats)
+                    all_maximal_floats = np.concatenate(maximal_floats)
+                    maximal_item_float = np.mean(all_maximal_floats)
+
+                    #print('and between here')
+                if maximal_item_float < min_float or minimal_item_float > max_float:
+                    impossible_range = True
+
+        # Main loop for adjusting floats
+        #print(f'Float range possible, starting main loop, float_data: ')
+        #print(float_data_np)
+        #start_time = time.time()
+        #data_sorted_desc = data_sorted_asc[::-1]
+
+        while not range_reached and not impossible_range:
+            start_time = time.time()
+            data_sorted_desc = data_sorted_asc[::-1]
+            # Timeout check
+            if time.time() - start_time > 0.5:
+                impossible_range = True
+                print('Timed out')
+                break
+
+            used_replacements = set()
+            old_mean = np.mean(float_data_np[:, Float_idx])
+            # Decide the sorting order based on the current mean
+            if old_mean < min_float:
+                data_in_order = data_sorted_desc
+                float_data_np = float_data_np[np.argsort(float_data_np[:, Float_idx])]
+            else:
+                data_in_order = data_sorted_asc
+                float_data_np = float_data_np[np.argsort(float_data_np[:, Float_idx])[::-1]]
+
+            float_data_ids = set(float_data_np[:, DF_ID_idx])
+
+            # Vectorized filtering and distance calculations
+            for row in float_data_np:
+                old_mean = np.mean(float_data_np[:, Float_idx])
+                other_float_sum = old_mean * 10 - row[Float_idx]
+
+                # Create a boolean mask for matching Collection_idx values
+                collection_mask = data_in_order[:, Collection_idx] == row[Collection_idx]
+
+                #available_data_np = data_in_order[~np.isin(data_in_order[:, DF_ID_idx], list(used_replacements) + list(float_data_ids))]
+                available_data_mask = (~np.isin(data_in_order[:, DF_ID_idx], list(used_replacements) + list(float_data_ids))) & collection_mask
+
+                # Apply the combined mask to data_in_order to get available_data_np
+                available_data_np = data_in_order[available_data_mask]
+
+                candidate_floats = available_data_np[:, Float_idx]
+                new_means = (other_float_sum + candidate_floats) / 10
+                new_distances = np.abs(max_float - new_means) + np.abs(min_float - new_means)
+
+                # Find the best replacement
+                best_idx = np.argmin(new_distances)
+                best_replacement = available_data_np[best_idx]
+                n = best_replacement[DF_ID_idx]
+                o = row[DF_ID_idx]
+                #print(f'Replacing {o} with {n}')
+                used_replacements.update([o, n])
+                float_data_ids.remove(o)
+                float_data_ids.add(n)
+
+                mask = np.isin(data_np[:, DF_ID_idx], list(float_data_ids))
+                float_data_np = data_np[mask]
+
+                new_mean = np.mean(float_data_np[:, Float_idx])
+
+                if min_float < new_mean < max_float:
+                    range_reached = True
+                    break
+
+        return float_data_np, range_reached
+
+    def new_simple_adjust_float(float_data_np, min_float, max_float, data_np, combo, split):
+        range_reached = False
+        impossible_range = False
+        DF_ID_idx, Price_idx, Float_idx, Collection_idx = 0, 1, 2, 3
+
+        # Main loop for adjusting floats
+        #print(f'Float range possible, starting main loop, float_data: ')
+        #print(float_data_np)
+        #start_time = time.time()
+        #data_sorted_desc = data_sorted_asc[::-1]
+
+        while not range_reached and not impossible_range:
+            start_time = time.time()
+            data_sorted_asc = data_np[np.argsort(data_np[:, Float_idx])]
+            data_sorted_desc = data_sorted_asc[::-1]
+            # Timeout check
+            if time.time() - start_time > 0.5:
+                impossible_range = True
+                print('Timed out')
+                break
+
+            used_replacements = set()
+            old_mean = np.mean(float_data_np[:, Float_idx])
+            # Decide the sorting order based on the current mean
+            if old_mean < min_float:
+                data_in_order = data_sorted_desc
+                float_data_np = float_data_np[np.argsort(float_data_np[:, Float_idx])]
+            else:
+                data_in_order = data_sorted_asc
+                float_data_np = float_data_np[np.argsort(float_data_np[:, Float_idx])[::-1]]
+
+            float_data_ids = set(float_data_np[:, DF_ID_idx])
+
+            # Vectorized filtering and distance calculations
+            for row in float_data_np:
+                old_mean = np.mean(float_data_np[:, Float_idx])
+                other_float_sum = old_mean * 10 - row[Float_idx]
+
+                # Create a boolean mask for matching Collection_idx values
+                collection_mask = data_in_order[:, Collection_idx] == row[Collection_idx]
+
+                #available_data_np = data_in_order[~np.isin(data_in_order[:, DF_ID_idx], list(used_replacements) + list(float_data_ids))]
+                available_data_mask = (~np.isin(data_in_order[:, DF_ID_idx], list(used_replacements) + list(float_data_ids))) & collection_mask
+
+                # Apply the combined mask to data_in_order to get available_data_np
+                available_data_np = data_in_order[available_data_mask]
+
+                candidate_floats = available_data_np[:, Float_idx]
+                new_means = (other_float_sum + candidate_floats) / 10
+                new_distances = np.abs(max_float - new_means) + np.abs(min_float - new_means)
+
+                # Find the best replacement
+                best_idx = np.argmin(new_distances)
+                best_replacement = available_data_np[best_idx]
+                n = best_replacement[DF_ID_idx]
+                o = row[DF_ID_idx]
+                #print(f'Replacing {o} with {n}')
+                used_replacements.update([o, n])
+                float_data_ids.remove(o)
+                float_data_ids.add(n)
+
+                mask = np.isin(data_np[:, DF_ID_idx], list(float_data_ids))
+                float_data_np = data_np[mask]
+
+                new_mean = np.mean(float_data_np[:, Float_idx])
+
+                if min_float < new_mean < max_float:
+                    range_reached = True
+                    break
+
+        return float_data_np, range_reached
 
     def single_replacement(single_data, min_float, max_float, data, combo, print_s):
         data = data[~data['DF_ID'].isin(single_data['DF_ID'])]
@@ -496,7 +748,8 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
         return pair_data_np
 
     wear_starting_time = time.time() # start the timer
-    adjust_float_to_range_function_end_time = 0
+    check_def_time_elapsed = 0
+    float_def_time_elapsed = 0
     single_def_time_elapsed = 0
     pair_def_time_elapsed = 0
 
@@ -527,64 +780,95 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
     print_single = print_all #or True
     print_pair = print_all #or True  
     if print_base == True:
+        print(f'Wear: {wear_outcome}')
         print_summary(base_data, "No replacement")
 
+    impossible_range = False
     # Run replacement functions for the base wear outcome
-    adjust_float_to_range_function_start_time = time.time()
-    best_data, range_reached = adjust_float(base_data, min_floatWear, max_floatWear, data.copy(), combo, print_f = print_float, split = split)
-    #best_data, range_reached = new_adjust_float(base_data, min_floatWear, max_floatWear, data.copy(), combo, print_f = print_float, split = split)
-    adjust_float_to_range_function_end_time = time.time() - adjust_float_to_range_function_start_time
-    #adjust_float_to_range_function_elapsed_time = adjust_float_to_range_function_elapsed_time + adjust_float_to_range_function_end_time
-    '''
-    #if wear_outcome != 'MW+FN+FN+FN':
-    if wear_outcome != 'MW+FN+MW+FN':
-        range_reached = False    
-    '''
-    
-    if range_reached:
-        single_def_time_start = time.time()
-        #print_summary(best_data, 'Float: ')
-        #best_data = single_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_s = print_single)
-        #'''
-        #print(data)
+    check_def_time_start = time.time()
+    range_reached_already, impossible_range = check_possibility(base_data, min_floatWear, max_floatWear, data_float_sorted, combo, split)
+    check_def_time_elapsed = time.time() - check_def_time_start
+    if impossible_range == False:
         data_copy = data.copy()
         collection_mapping = {name: idx for idx, name in enumerate(all_collections)}
-        #data_copy['Collection'] = data_copy['Collection'].replace(collection_mapping)
         data_copy['Collection'] = data_copy['Collection'].map(collection_mapping)
         data_copy['Collection'] = data_copy['Collection'].astype(int)
-        #print(data_copy)
         data_np = data_copy[['DF_ID', 'Price', 'Float', 'Collection']].to_numpy()
-        ids = set(best_data['DF_ID'])
+        ids = set(base_data['DF_ID'])
         
-        best_data_np = np.array([row for row in data_np if row[0] in ids])
-        best_data_np = new_single_replacement(best_data_np, min_floatWear, max_floatWear, data_np, combo)
-        #ids = best_data_np[:, 0]
-        #best_data = data[data['DF_ID'].isin(ids)]
-        #best_data = best_data.sort_values(by=['Price', 'Float'], ascending=[False, False])
-        #'''
-        #print_summary(best_data, 'Single: ')
-        single_def_time_elapsed = time.time() - single_def_time_start
+        base_data_np = np.array([row for row in data_np if row[0] in ids])
+        if range_reached_already == True:
+            best_data_np = base_data_np
+            range_reached = range_reached_already
+        else:
+            float_def_time_start = time.time()
+            #best_data, range_reached = adjust_float(base_data, min_floatWear, max_floatWear, data.copy(), combo, print_f = print_float, split = split)
+            #'''
 
-        pair_def_time_start = time.time()
-        #best_data = pair_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_p = print_pair)
-        #'''
-        #ids = set(best_data['DF_ID'])
-        #best_data_np = np.array([row for row in data_np if row[0] in ids])
-        best_data_np = new_pair_replacement(best_data_np, min_floatWear, max_floatWear, data_np, combo)
-        ids = best_data_np[:, 0]
-        best_data = data[data['DF_ID'].isin(ids)]
-        best_data = best_data.sort_values(by=['Price', 'Float'], ascending=[False, False])        
-        #'''
+            #best_data_np, range_reached = new_adjust_float(base_data_np, min_floatWear, max_floatWear, data_np, combo, split)
+            best_data_np, range_reached = new_simple_adjust_float(base_data_np, min_floatWear, max_floatWear, data_np, combo, split)    
+            #'''
 
-        #print_summary(best_data, 'Pair: ')
-        pair_def_time_elapsed = time.time() - pair_def_time_start
-        #pair_replacement_function_elapsed_time = pair_replacement_function_elapsed_time + pair_replacement_function_end_time
-                
-        total_price = best_data['Price'].sum() # Calculate the results for the current wear outcome
-        average_float = best_data['Float'].mean()
-        expected_profit = round(expected_value - total_price, 2)
-        ep_percentage = round((expected_value/total_price-1)*100, 2)    
+            float_def_time_elapsed = time.time() - float_def_time_start
+            #adjust_float_to_range_function_elapsed_time = adjust_float_to_range_function_elapsed_time + adjust_float_to_range_function_end_time
+            '''
+            #if wear_outcome != 'MW+FN+FN+FN':
+            if wear_outcome != 'MW+FN+MW+FN':
+                range_reached = False    
+            '''
+    
+        if range_reached:
+            single_def_time_start = time.time()
+            #print_np_summary(best_data_np, 'Float def', data_copy)
+            #best_data = single_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_s = print_single)
+            #'''
+            #print(data)
+            #data_copy = data.copy()
+            #collection_mapping = {name: idx for idx, name in enumerate(all_collections)}
+            #data_copy['Collection'] = data_copy['Collection'].replace(collection_mapping)
+            #data_copy['Collection'] = data_copy['Collection'].map(collection_mapping)
+            #data_copy['Collection'] = data_copy['Collection'].astype(int)
+            #print(data_copy)
+            #data_np = data_copy[['DF_ID', 'Price', 'Float', 'Collection']].to_numpy()
+            #ids = set(best_data['DF_ID'])
+            
+            #best_data_np = np.array([row for row in data_np if row[0] in ids])
+            best_data_np = new_single_replacement(best_data_np, min_floatWear, max_floatWear, data_np, combo)
+            #ids = best_data_np[:, 0]
+            #best_data = data[data['DF_ID'].isin(ids)]
+            #best_data = best_data.sort_values(by=['Price', 'Float'], ascending=[False, False])
+            #'''
+            #print_summary(best_data, 'Single: ')
+            single_def_time_elapsed = time.time() - single_def_time_start
+
+            pair_def_time_start = time.time()
+            #best_data = pair_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_p = print_pair)
+            #'''
+            #ids = set(best_data['DF_ID'])
+            #best_data_np = np.array([row for row in data_np if row[0] in ids])
+            best_data_np = new_pair_replacement(best_data_np, min_floatWear, max_floatWear, data_np, combo)
+            ids = best_data_np[:, 0]
+            best_data = data[data['DF_ID'].isin(ids)]
+            best_data = best_data.sort_values(by=['Price', 'Float'], ascending=[False, False])        
+            #'''
+
+            #print_summary(best_data, 'Pair: ')
+            pair_def_time_elapsed = time.time() - pair_def_time_start
+            #pair_replacement_function_elapsed_time = pair_replacement_function_elapsed_time + pair_replacement_function_end_time
+                    
+            total_price = best_data['Price'].sum() # Calculate the results for the current wear outcome
+            average_float = best_data['Float'].mean()
+            expected_profit = round(expected_value - total_price, 2)
+            ep_percentage = round((expected_value/total_price-1)*100, 2)    
+        
+        else:
+            best_data = None
+            total_price = "Null"
+            average_float = "Null"
+            expected_profit = "Null"
+            ep_percentage = "Null"
     else:
+        best_data = None
         total_price = "Null"
         average_float = "Null"
         expected_profit = "Null"
@@ -608,7 +892,7 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
     })
     #print(f"Time required for wear {wear_outcome}: {int(time_for_wear_outcome // 60):02d}:{int(time_for_wear_outcome % 60):02d}")
 
-    return result_row, best_data, time_for_wear_outcome, adjust_float_to_range_function_end_time, single_def_time_elapsed, pair_def_time_elapsed
+    return result_row, best_data, time_for_wear_outcome, check_def_time_elapsed, float_def_time_elapsed, single_def_time_elapsed, pair_def_time_elapsed
 
 def process_wear_outcome_wrapper(args):
     wear_outcome, wear_data, data, combo, split = args
@@ -675,7 +959,8 @@ def comb_main(all_collections, rarities):
         collection_data = {}
         collections_for_this_rarity = []
 
-        adjust_float_to_range_function_elapsed_time_total = 0
+        check_def_time_elapsed_total = 0
+        float_def_time_elapsed_total = 0
         single_def_time_elapsed_total = 0
         pair_def_time_elapsed_total = 0
     
@@ -757,13 +1042,16 @@ def comb_main(all_collections, rarities):
                     data['DF_ID'] = range(1, len(data) + 1)
                     cols = ['DF_ID'] + [col for col in data.columns if col != 'DF_ID']
                     data = data[cols]
+
+                    data_float_sorted = data.sort_values(by='Float', ascending=True) 
                     
                     combined_wear_data = {}
                     for wear_key, details in wear_data_json.items():
                         expected_value = details['split'][f'{split_key}']['ev']  # Extract expected value based on current split
                         combined_wear_data[wear_key] = (details["min_float"], details["max_float"], expected_value)
 
-                    adjust_float_to_range_function_elapsed_time = 0
+                    check_def_time_elapsed = 0
+                    float_def_time_elapsed = 0
                     single_def_time_elapsed = 0
                     pair_def_time_elapsed = 0
 
@@ -774,7 +1062,7 @@ def comb_main(all_collections, rarities):
                     for wear_outcome, wear_data in combined_wear_data.items(): # Iterate through all wear outcomes
                         #print(wear_outcome)
                         #outcome_time_start = time.time()
-                        result_row, best_data, wear_time, float_time, single_time, pair_time = process_wear_outcome(wear_outcome, wear_data, data, combo, split)
+                        result_row, best_data, wear_time, check_time, float_time, single_time, pair_time = process_wear_outcome(wear_outcome, wear_data, data, combo, split, data_float_sorted)
                         #results_df = pd.concat([results_df, result_row], ignore_index=True)
                         #print(result_row)
                         wear_rows.append(result_row)
@@ -790,7 +1078,8 @@ def comb_main(all_collections, rarities):
                         #outcome_time = time.time() - outcome_time_start
                         #results[combo_key][split_key]['outcomes'].append(result_row)
                         #print(f"Time for wear {wear_outcome}: {format_time(wear_time)}")
-                        adjust_float_to_range_function_elapsed_time += float_time
+                        check_def_time_elapsed += check_time
+                        float_def_time_elapsed += float_time
                         single_def_time_elapsed += single_time
                         pair_def_time_elapsed += pair_time                
                     #'''
@@ -856,11 +1145,12 @@ def comb_main(all_collections, rarities):
                         print(outcome_df)
                         #print(outcome_df['Best Data'])
 
-                    adjust_float_to_range_function_elapsed_time_total += adjust_float_to_range_function_elapsed_time
+                    check_def_time_elapsed_total += check_def_time_elapsed
+                    float_def_time_elapsed_total += float_def_time_elapsed
                     single_def_time_elapsed_total += single_def_time_elapsed
                     pair_def_time_elapsed_total += pair_def_time_elapsed
 
-                    print_elapsed_time(print_times, adjust_float_to_range_function_elapsed_time, single_def_time_elapsed, pair_def_time_elapsed, coll_time_start, combo, total_num_collections)
+                    print_elapsed_time(print_times, float_def_time_elapsed_total, single_def_time_elapsed, pair_def_time_elapsed, coll_time_start, combo, total_num_collections)
                     if num_collections > 1:
                         print(f"Time for split: {format_time(results[combo_key][split_key]['total_time'])}")
                 
@@ -868,7 +1158,8 @@ def comb_main(all_collections, rarities):
                 print(f'Collection {combo_key} time: {format_time(coll_time)}')
 
         if total_num_collections > 1:
-            print(f'\nFloat def total time: {format_time(adjust_float_to_range_function_elapsed_time_total)}')
+            print(f'\nCheck def total time: {format_time(check_def_time_elapsed_total)}')
+            print(f'Float def total time: {format_time(float_def_time_elapsed_total)}')
             print(f'Single def total time: {format_time(single_def_time_elapsed_total)}')
             print(f'Pair def total time: {format_time(pair_def_time_elapsed_total)}')
         '''
