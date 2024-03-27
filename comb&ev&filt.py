@@ -1,14 +1,12 @@
 import pandas as pd
 import time
 import itertools
-from itertools import product
 import json
 import csv
 #from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 import numpy as np
-from numba import jit, njit, vectorize
-
+#from numba import jit, njit, vectorize
 
 wear = "ALL"
 StatTrak = False
@@ -177,7 +175,6 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
         if print_f == True:
             print_summary(float_data, "Float adjustment")
         return float_data, range_reached
-    
 
     def single_replacement(single_data, min_float, max_float, data, combo, print_s):
         data = data[~data['DF_ID'].isin(single_data['DF_ID'])]
@@ -276,87 +273,8 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
         sorted_single_data_np = single_data_np[sorted_indices]
         #print(sorted_single_data_np)
         return sorted_single_data_np
-    
+      
     def pair_replacement(pair_data, min_float, max_float, data, combo, print_p):
-        data_reduced = data[['DF_ID', 'Price', 'Float', 'Collection']]
-        data_pairs = data_reduced.merge(data, how='cross', suffixes=('_x', '_y')).query('DF_ID_x != DF_ID_y')
-        data_pairs['pair'] = data_pairs.apply(lambda x: tuple(sorted([x['DF_ID_x'], x['DF_ID_y']])), axis=1)
-        data_pairs = data_pairs.drop_duplicates(subset='pair')
-        data_pairs = data_pairs.drop(columns='pair')
-        data_pairs['TPrice'] = data_pairs['Price_x'] + data_pairs['Price_y']
-        data_pairs['CFloat'] = data_pairs['Float_x'] + data_pairs['Float_y']
-        data_pairs = data_pairs[['DF_ID_x', 'DF_ID_y', 'TPrice', 'CFloat', 'Collection_x', 'Collection_y']]
-        data_pairs = data_pairs.sort_values(by=['TPrice', 'CFloat'], ascending=[True, True])
-        data_pairs.reset_index(drop=True, inplace=True)
-        #print(f'Time to generate data_pairs: {format_time(time.time()-data_pairs_time)}')
-        #print(data_pairs)
-
-        improvement_found = True
-        #last_imporvement_time = time.time()
-        while improvement_found:
-            #print(f'Rechecking improvement possibility')
-            improvement_found = False
-
-            pair_data_IDs_set = set(pair_data['DF_ID'])
-            #filt_data_pairs = data_pairs.copy()
-            filt_data_pairs = data_pairs[~data_pairs['DF_ID_x'].isin(pair_data_IDs_set) & ~data_pairs['DF_ID_y'].isin(pair_data_IDs_set)]
-
-            pair_data_float = pair_data['Float'].sum()
-            fair_price = pair_data.iloc[0]['Price'] + pair_data.iloc[1]['Price']
-            filt_data_pairs = filt_data_pairs[filt_data_pairs['TPrice'] < fair_price]
-
-            minimal_float_of_2_items = min_float * 10 - pair_data_float
-            maximal_float_of_2_items = max_float * 10 - pair_data_float
-
-            for row1, row2 in itertools.combinations(pair_data.itertuples(), 2):
-                pair_price = row1.Price + row2.Price
-                pair_float = row1.Float + row2.Float
-
-                min_items_float = minimal_float_of_2_items + pair_float
-                max_items_float = maximal_float_of_2_items + pair_float
-
-                mask = (filt_data_pairs['TPrice'] < pair_price) & \
-                    (filt_data_pairs['CFloat'] > min_items_float) & \
-                    (filt_data_pairs['CFloat'] < max_items_float)
-                '''
-                if len(combo) > 1: # Include collection filtering conditions
-                    mask &= ( 
-                        ((filt_data_pairs['Collection_x'] == row1.Collection) & (filt_data_pairs['Collection_y'] == row2.Collection)) |
-                        ((filt_data_pairs['Collection_x'] == row2.Collection) & (filt_data_pairs['Collection_y'] == row1.Collection))
-                    )            
-                '''
-                if len(combo) > 1: # Include collection filtering conditions
-                    row1_collection = row1.Collection
-                    row2_collection = row2.Collection
-                    mask &= ( 
-                        ((filt_data_pairs['Collection_x'] == row1_collection) & (filt_data_pairs['Collection_y'] == row2_collection)) |
-                        ((filt_data_pairs['Collection_x'] == row2_collection) & (filt_data_pairs['Collection_y'] == row1_collection))
-                    )
-                
-                valid_pairs = filt_data_pairs.loc[mask]  
-
-                if not valid_pairs.empty:
-                    best_pair = valid_pairs.iloc[0]
-                    #imporvement_time = time.time() - last_imporvement_time
-                    #last_imporvement_time = time.time()
-                    o1, o2 = row1.DF_ID, row2.DF_ID
-                    n1, n2 = best_pair['DF_ID_x'], best_pair['DF_ID_y']
-                    improvement_found = True
-                    #print(f"Replacing IDs {o1} and {o2} with ID {n1} and ID {n2}, {format_time(imporvement_time)}")
-                    #print(f'Current pair cost: {round(pair_price, 2)}, Best pair cost: {round(best_pair["TPrice"], 2)}')
-                    pair_data = pair_data[~pair_data['DF_ID'].isin([o1, o2])]
-                    pair_data = pair_data._append(data[data['DF_ID'].isin([n1, n2])], ignore_index=True)
-                    pair_data = pair_data.sort_values(by=['Price', 'Float'], ascending=[False, False])                    
-                    #print('New pair_data: ')
-                    #print(pair_data)
-                    #last_imporvement_time = time.time()
-                    break
-
-        if print_p == True:
-            print_summary(pair_data, "Pair replacement")
-        return pair_data
-    
-    def new_pair_replacement(pair_data, min_float, max_float, data, combo, print_p):
         data_reduced = data[['DF_ID', 'Price', 'Float', 'Collection']].copy() # Use only necessary columns to reduce memory footprint
         indices = np.triu_indices(len(data_reduced), k=1) # Create all possible index combinations for pairs   
         df_id_x = data_reduced.iloc[indices[0]]['DF_ID'].values # Get the values for each combination by indexing into the data_reduced DataFrame
@@ -453,11 +371,134 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
         if print_p == True:
             print_summary(pair_data, "Pair replacement")
         return pair_data
-    
+
+    def new_pair_replacement(pair_data_np, min_float, max_float, data_np, combo):
+        #zero_time = 0
+        DF_ID_idx, Price_idx, Float_idx, Collection_idx = 0, 1, 2, 3 # pair_data indexing
+        DF_ID_x_idx, DF_ID_y_idx, TPrice_idx, CFloat_idx, Collection_x_idx, Collection_y_idx = 0, 1, 2, 3, 4, 5 # data_np pairs indexing
+
+        n = len(data_np)
+        indices = np.triu_indices(n, k=1)  # Create all possible index combinations for pairs
+        # Accessing data by index
+        df_id_x = data_np[indices[0], DF_ID_idx]
+        df_id_y = data_np[indices[1], DF_ID_idx]
+        tprice = data_np[indices[0], Price_idx] + data_np[indices[1], Price_idx]
+        cfloat = data_np[indices[0], Float_idx] + data_np[indices[1], Float_idx]
+        # Assuming collections are encoded as integers for simplicity
+        collection_x = data_np[indices[0], Collection_idx]
+        collection_y = data_np[indices[1], Collection_idx]
+
+        # Combine all pair attributes into a single 2D array
+        data_pairs = np.stack((df_id_x, df_id_y, tprice, cfloat, collection_x, collection_y), axis=-1)
+
+        # Sorting by TPrice and then by CFloat
+        sorted_indices = np.lexsort((data_pairs[:, CFloat_idx], data_pairs[:, TPrice_idx]))
+        # Then, apply these indices to data_pairs to get the sorted array
+        sorted_data_pairs = data_pairs[sorted_indices]
+        #print(sorted_data_pairs)
+        #zero_time_end = time.time()
+        #print(f'Time creating np array of combinations: {format_time(zero_time_end-zero_time_start)}')
+
+        #print('Data pairs sorted NP (2D):')
+        #print(sorted_data_pairs)
+        #print(f'Dim: {sorted_data_pairs.ndim}')
+
+        improvement_found = True
+
+        #print('Pair Data NP: ')
+        #print(pair_data_np)
+        #print(f'Dim: {pair_data_np.ndim}')
+        comb_indices = np.array(list(itertools.combinations(range(10), 2)))
+
+        while improvement_found:
+            sorted_indices = np.lexsort((-pair_data_np[:, Float_idx], -pair_data_np[:, Price_idx]))
+            pair_data_np = pair_data_np[sorted_indices]
+            #print(f'Rechecking improvement possibility')
+            improvement_found = False
+
+            pair_data_ids = set(pair_data_np[:, DF_ID_idx])
+
+            #fair_price = pair_data.iloc[0]['Price'] + pair_data.iloc[1]['Price']
+            fair_price = pair_data_np[0, Price_idx] + pair_data_np[1, Price_idx]
+
+            pair_data_ids_np = np.array(list(pair_data_ids))
+
+            # Create boolean masks to identify pairs where both DF_ID_x and DF_ID_y are not in pair_data_ids
+            mask_df_id_x = ~np.isin(sorted_data_pairs[:, DF_ID_x_idx], pair_data_ids_np)
+            mask_df_id_y = ~np.isin(sorted_data_pairs[:, DF_ID_y_idx], pair_data_ids_np)
+
+            # Combine masks to filter out rows where both conditions are met
+            mask_combined = (sorted_data_pairs[:, TPrice_idx] < fair_price) & mask_df_id_x & mask_df_id_y
+            filt_data_pairs_np = sorted_data_pairs[mask_combined]
+
+            pair_data_float = pair_data_np[:, Float_idx].sum()
+
+            minimal_float_of_2_items = min_float * 10 - pair_data_float
+            maximal_float_of_2_items = max_float * 10 - pair_data_float
+
+            pair_prices = pair_data_np[comb_indices[:, 0], Price_idx] + pair_data_np[comb_indices[:, 1], Price_idx]
+            pair_floats = pair_data_np[comb_indices[:, 0], Float_idx] + pair_data_np[comb_indices[:, 1], Float_idx]
+
+            for i, (pair_price, pair_float) in enumerate(zip(pair_prices, pair_floats)):
+                min_items_float = minimal_float_of_2_items + pair_float
+                max_items_float = maximal_float_of_2_items + pair_float
+
+                # Apply filtering conditions to filt_data_pairs_np
+                valid_mask = (filt_data_pairs_np[:, TPrice_idx] < pair_price) & \
+                            (filt_data_pairs_np[:, CFloat_idx] > min_items_float) & \
+                            (filt_data_pairs_np[:, CFloat_idx] < max_items_float)
+
+                # Additional collection-based filtering if needed
+                if len(combo) > 1:
+                    # Retrieve collections for the current pair from pair_data_np
+                    collection1 = pair_data_np[comb_indices[i, 0], Collection_idx]
+                    collection2 = pair_data_np[comb_indices[i, 1], Collection_idx]
+
+                    # Create masks for collection conditions
+                    mask_collection_match = (
+                        (filt_data_pairs_np[:, Collection_x_idx] == collection1) & (filt_data_pairs_np[:, Collection_y_idx] == collection2)
+                    ) | (
+                        (filt_data_pairs_np[:, Collection_x_idx] == collection2) & (filt_data_pairs_np[:, Collection_y_idx] == collection1)
+                    )
+
+                    # Update the valid_mask to include the collection matching condition
+                    valid_mask &= mask_collection_match
+
+                valid_pairs = filt_data_pairs_np[valid_mask]
+
+                if valid_pairs.size > 0:
+                    # Find the minimum TPrice value
+                    min_tprice = np.min(valid_pairs[:, TPrice_idx])
+                    # Filter valid_pairs to those with the minimum TPrice
+                    min_tprice_pairs = valid_pairs[valid_pairs[:, TPrice_idx] == min_tprice]
+                    # Among the pairs with the minimum TPrice, find the one with the lowest CFloat
+                    best_pair_idx = np.argmin(min_tprice_pairs[:, CFloat_idx])
+                    best_pair = min_tprice_pairs[best_pair_idx]
+
+                    # IDs of the pair being replaced
+                    o1, o2 = pair_data_np[comb_indices[i, 0], DF_ID_idx], pair_data_np[comb_indices[i, 1], DF_ID_idx]
+                    # IDs of the best replacement pair
+                    n1, n2 = best_pair[DF_ID_x_idx], best_pair[DF_ID_y_idx]
+                    #print(f"Replacing IDs {o1} and {o2} with ID {n1} and ID {n2}")
+                    # Remove o1 and o2 from the set of IDs
+                    pair_data_ids.remove(o1)
+                    pair_data_ids.remove(o2)
+                    pair_data_ids.update([n1, n2])
+                    #print(f'New pair_data ids: {pair_data_ids}')
+                    improvement_found = True
+
+                    mask = np.isin(data_np[:, DF_ID_idx], list(pair_data_ids))
+                    pair_data_np = data_np[mask]
+                    #last_imporvement_time = time.time()
+                    break
+
+        #print(f'Total time spent filtering: {format_time(zero_time)}')
+        return pair_data_np
+
     wear_starting_time = time.time() # start the timer
     adjust_float_to_range_function_end_time = 0
-    single_def_elapsed_time = 0
-    pair_replacement_function_end_time = 0
+    single_def_time_elapsed = 0
+    pair_def_time_elapsed = 0
 
     if len(combo) == 1:
         base_data = data.tail(10).reset_index(drop=True) # Initialize base_data with the last 10 items in data
@@ -501,25 +542,42 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
     '''
     
     if range_reached:
-        single_replacement_function_start_time = time.time()
-        #print_summary(best_data, 'Before: ')
+        single_def_time_start = time.time()
+        #print_summary(best_data, 'Float: ')
         #best_data = single_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_s = print_single)
         #'''
+        #print(data)
+        data_copy = data.copy()
+        collection_mapping = {name: idx for idx, name in enumerate(all_collections)}
+        #data_copy['Collection'] = data_copy['Collection'].replace(collection_mapping)
+        data_copy['Collection'] = data_copy['Collection'].map(collection_mapping)
+        data_copy['Collection'] = data_copy['Collection'].astype(int)
+        #print(data_copy)
+        data_np = data_copy[['DF_ID', 'Price', 'Float', 'Collection']].to_numpy()
         ids = set(best_data['DF_ID'])
-        data_np = data[['DF_ID', 'Price', 'Float', 'Collection']].to_numpy()
+        
         best_data_np = np.array([row for row in data_np if row[0] in ids])
         best_data_np = new_single_replacement(best_data_np, min_floatWear, max_floatWear, data_np, combo)
+        #ids = best_data_np[:, 0]
+        #best_data = data[data['DF_ID'].isin(ids)]
+        #best_data = best_data.sort_values(by=['Price', 'Float'], ascending=[False, False])
+        #'''
+        #print_summary(best_data, 'Single: ')
+        single_def_time_elapsed = time.time() - single_def_time_start
+
+        pair_def_time_start = time.time()
+        #best_data = pair_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_p = print_pair)
+        #'''
+        #ids = set(best_data['DF_ID'])
+        #best_data_np = np.array([row for row in data_np if row[0] in ids])
+        best_data_np = new_pair_replacement(best_data_np, min_floatWear, max_floatWear, data_np, combo)
         ids = best_data_np[:, 0]
         best_data = data[data['DF_ID'].isin(ids)]
-        best_data = best_data.sort_values(by=['Price', 'Float'], ascending=[False, False])
+        best_data = best_data.sort_values(by=['Price', 'Float'], ascending=[False, False])        
         #'''
-        #print_summary(best_data, 'After: ')
-        single_def_elapsed_time = time.time() - single_replacement_function_start_time
 
-        pair_replacement_function_start_time = time.time()
-        #best_data = pair_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_p = print_pair)
-        best_data = new_pair_replacement(best_data, min_floatWear, max_floatWear, data.copy(), combo, print_p = print_pair)
-        pair_replacement_function_end_time = time.time() - pair_replacement_function_start_time
+        #print_summary(best_data, 'Pair: ')
+        pair_def_time_elapsed = time.time() - pair_def_time_start
         #pair_replacement_function_elapsed_time = pair_replacement_function_elapsed_time + pair_replacement_function_end_time
                 
         total_price = best_data['Price'].sum() # Calculate the results for the current wear outcome
@@ -550,7 +608,7 @@ def process_wear_outcome(wear_outcome, wear_data, data, combo, split):
     })
     #print(f"Time required for wear {wear_outcome}: {int(time_for_wear_outcome // 60):02d}:{int(time_for_wear_outcome % 60):02d}")
 
-    return result_row, best_data, time_for_wear_outcome, adjust_float_to_range_function_end_time, single_def_elapsed_time, pair_replacement_function_end_time
+    return result_row, best_data, time_for_wear_outcome, adjust_float_to_range_function_end_time, single_def_time_elapsed, pair_def_time_elapsed
 
 def process_wear_outcome_wrapper(args):
     wear_outcome, wear_data, data, combo, split = args
@@ -606,21 +664,6 @@ def comb_main(all_collections, rarities):
         filtered_data = combined_data[filter_mask].copy()
         return filtered_data
     
-    def old_filter_data(combined_data, filter_count):
-        combined_data['Float_Score'] = combined_data['Float'].rank(method='min').astype(int)
-        filtered_data = combined_data[:filter_count].copy()  # Automatically include the first 'filter_count' items
-    
-        for i in range(filter_count, len(combined_data)): # Iterate over items starting from the 'filter_count'th item
-            item = combined_data.iloc[i]
-            
-            num_lower_float_score = filtered_data[filtered_data['Float_Score'] < item['Float_Score']].shape[0] # Count how many items in the filtered data have a lower Float_Score than the current item
-            
-            if num_lower_float_score < filter_count: # If the number of items with a lower float score is less than 'filter_count', include this item
-                filtered_data = pd.concat([filtered_data, item.to_frame().T], ignore_index=True)
-
-        filtered_data.drop(columns=['Float_Score'], inplace=True)
-        return filtered_data
-    
     for rarity in rarities:
         item_rarity = rarity_shift.get(rarity, rarity) # Shift the rarity for tradeup
         #print(f'\nRarity: {rarity}')
@@ -631,6 +674,10 @@ def comb_main(all_collections, rarities):
 
         collection_data = {}
         collections_for_this_rarity = []
+
+        adjust_float_to_range_function_elapsed_time_total = 0
+        single_def_time_elapsed_total = 0
+        pair_def_time_elapsed_total = 0
     
         '''
         for idx, collection in enumerate(all_collections):
@@ -693,7 +740,6 @@ def comb_main(all_collections, rarities):
                                 # Filter the data for the current collection
                                 #filtered_df = collection_data[collection]
                                 filtered_df = filter_data(collection_data[collection], filter_count)
-                                #filtered_df = old_filter_data(collection_data[collection], filter_count)
                                 # Add the filtered DataFrame to the list
                                 filtered_frames.append(filtered_df)
 
@@ -718,8 +764,8 @@ def comb_main(all_collections, rarities):
                         combined_wear_data[wear_key] = (details["min_float"], details["max_float"], expected_value)
 
                     adjust_float_to_range_function_elapsed_time = 0
-                    single_replacement_function_elapsed_time = 0
-                    pair_replacement_function_elapsed_time = 0
+                    single_def_time_elapsed = 0
+                    pair_def_time_elapsed = 0
 
                     wear_df = pd.DataFrame(columns=["Wear", "Min Float", "Max Float", "Avg Float", "Cost", "Expected Value", "Expected Profit", "Exp Profit %", "Time"]) # Create an empty DataFrame to store the results
 
@@ -745,8 +791,8 @@ def comb_main(all_collections, rarities):
                         #results[combo_key][split_key]['outcomes'].append(result_row)
                         #print(f"Time for wear {wear_outcome}: {format_time(wear_time)}")
                         adjust_float_to_range_function_elapsed_time += float_time
-                        single_replacement_function_elapsed_time += single_time
-                        pair_replacement_function_elapsed_time += pair_time                
+                        single_def_time_elapsed += single_time
+                        pair_def_time_elapsed += pair_time                
                     #'''
                         
                     # parrallel this bitch
@@ -810,13 +856,21 @@ def comb_main(all_collections, rarities):
                         print(outcome_df)
                         #print(outcome_df['Best Data'])
 
-                    print_elapsed_time(print_times, adjust_float_to_range_function_elapsed_time, single_replacement_function_elapsed_time, pair_replacement_function_elapsed_time, coll_time_start, combo, total_num_collections)
+                    adjust_float_to_range_function_elapsed_time_total += adjust_float_to_range_function_elapsed_time
+                    single_def_time_elapsed_total += single_def_time_elapsed
+                    pair_def_time_elapsed_total += pair_def_time_elapsed
+
+                    print_elapsed_time(print_times, adjust_float_to_range_function_elapsed_time, single_def_time_elapsed, pair_def_time_elapsed, coll_time_start, combo, total_num_collections)
                     if num_collections > 1:
                         print(f"Time for split: {format_time(results[combo_key][split_key]['total_time'])}")
                 
                 coll_time = time.time() - coll_time_start
                 print(f'Collection {combo_key} time: {format_time(coll_time)}')
 
+        if total_num_collections > 1:
+            print(f'\nFloat def total time: {format_time(adjust_float_to_range_function_elapsed_time_total)}')
+            print(f'Single def total time: {format_time(single_def_time_elapsed_total)}')
+            print(f'Pair def total time: {format_time(pair_def_time_elapsed_total)}')
         '''
         outcomes = results[combo_key][split_key]['outcomes']
         json_outcomes = [df.to_dict(orient='records') for df in outcomes]
@@ -917,7 +971,7 @@ def ev_main(collections, rarities, print_ev_time):
 
         unique_floats = {}
         combined_float_ranges = {}
-        all_wear_combinations = list(product(*float_ranges_list))
+        all_wear_combinations = list(itertools.product(*float_ranges_list))
 
         #full_max_float = []
         #filtered_max_float = []
