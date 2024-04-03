@@ -351,6 +351,7 @@ async function scrapeItems(page, item, wear, source, totalItems, exchangeRatio, 
                     timestamp: timestamp
                 });
                 newItemsAdded = true;
+                lastItemTime = new Date();
             }
         });
 
@@ -361,6 +362,7 @@ async function scrapeItems(page, item, wear, source, totalItems, exchangeRatio, 
         if (!newItemsAdded) {
             await randomScrollPage(page, 150, 300);
             await simulateMouseMovements(page, 5, width, height);
+            /*
             const result = await Promise.race([
                 new Promise(resolve => setTimeout(() => resolve('timeout'), 10000)),
                 waitForRandomTimeout(page, 250, 1500)
@@ -368,6 +370,12 @@ async function scrapeItems(page, item, wear, source, totalItems, exchangeRatio, 
             if (result === 'timeout') {
                 console.log('No new items loading');
             }
+            */
+            if (new Date() - lastItemTime > 10000) {
+                console.log('No new items found in the last 10s, exiting..');
+                break;
+            }
+            console.log('No new items found, checking again...');
         }
         if (new Date() - startTime > 45000) {
             console.log(`${records.length} items processed`);

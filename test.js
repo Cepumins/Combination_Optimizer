@@ -424,7 +424,7 @@ async function fetchItemDetails(page, item, wear, source, itemSelector, itemCoun
     return { totalItems, exchangeRatio };
 }
 
-async function readItems(page, item, wear, id) {
+async function readBuff(page, item, wear, id) {
     //const searchName = item.replace(/_/g, '+');
     //const link = `https://haloskins.com/market/${id}?&keyword=${searchName}`;
     const link = `https://buff.163.com/goods/${id}#tab=selling&page_num=1`;
@@ -455,74 +455,6 @@ async function readItems(page, item, wear, id) {
     return results;
 }
 
-async function scrapeCS2GO(page, item, wear) {
-    const searchName = (item + '-').toLowerCase().replace(/[_\.]/g, '-').replace(/--+/g, '-');
-    const searchWear = invertedConditionMappings[wear.toUpperCase()].toLowerCase().replace(/\s/g, "-");
-    const link = `https://cs2go.com/spu/730/${searchName}${searchWear}`;
-
-    const { width, height } = await initializePage(page, link);
-
-    const source = 'CS2GO'
-    console.log(source)
-
-    //let match;
-    //let totalItems = 20;
-
-    /*
-    while (!match) {
-        try { // Use the new selector to fetch the item name and condition
-            const itemNameAndCondition = await page.$eval('div.item-name.detail-item > span', el => el.textContent);
-            match = itemNameAndCondition.match(/^(.*?)\s\|\s(.*?)\s\((.*?)\)$/);
-    
-        } catch (error) {
-            console.log('Error fetching details, retrying...', error);
-        }
-    
-        if (!match) {
-            console.log('Retrying due to unsatisfied conditions (match)');
-            await new Promise(resolve => setTimeout(resolve, 500)); // Wait for 1 second before retrying
-        }
-    }
-    
-    if (match) {
-        // get item name and wear
-        const itemName = match[1] + ' | ' + match[2]; // Combined to include the '|' in the name
-        let itemNameUnd = itemName.replace(/\|\s?/g, '').replace(/\s/g, '_'); // Replace '| ' with '';
-        const itemConditionFull = match[3];
-        let itemConditionAbbr = conditionMappings[itemConditionFull];
-    
-        console.log(`Name: ${itemName}`);
-        console.log(`Wear: ${itemConditionAbbr}`);
-        //csvFileName = `${itemNameUnd}_(${itemConditionAbbr}).csv`;
-        if (itemNameUnd === item && itemConditionAbbr.toLowerCase() === wear) {
-            console.log('The item name and wear conditions match.');
-        } else {
-            console.log('THE ITEM NAME AND WEAR CONDITIONS DO NOT MATCH!!!');
-        }
-    } else {
-        console.log('Item name and condition not found');
-    }*/
-    let useless;
-    const totalItems = await fetchItemDetails(page, item, wear, source, 'div.item-name.detail-item > span', useless, conditionMappings);
-
-    const goResults = await scrapeOtherWears(page, source);
-    //console.log(goResults)
-    updatePricesCSV(item, collection, quality, goResults, source);
-
-    const steResults = await scrapeOtherWears(page, 'CS2GOsteam');
-    //console.log(steResults)
-    updatePricesCSV(item, collection, quality, steResults, 'CS2GOsteam');
-
-    const cookieButtonXPath = '//*[@id="app"]/div[4]/div/div[2]/div[2]';
-    await acceptCookies(page, cookieButtonXPath);
-
-    await waitForRandomTimeout(page, 500, 1500)
-
-    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, width, height)
-    await waitForRandomTimeout(page, 250, 1500);
-    return results
-}
-
 (async () => {
     //const directoryPath = path.join(__dirname, quality, collection); // Create a path for the subfolder
     //let item, wear, id;
@@ -533,7 +465,7 @@ async function scrapeCS2GO(page, item, wear) {
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
 
-    const results = await readItems(page, item, wear, id);
+    const results = await readBuff(page, item, wear, id);
 
     //console.log(results)
 
