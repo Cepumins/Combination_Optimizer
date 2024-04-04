@@ -88,20 +88,26 @@ def check_and_read_csvs(rarity, base_directory, directory_path, site_names, taxe
     save_path = os.path.join(base_directory, f"prices/{rarity}/_prices_{rarity}.csv")
     combined_data.to_csv(save_path, index=False)
 
-base_directory = "C:/Users/Kristaps/Desktop/TUP-main/ne/"
-site_names = ["Halo", "CS2GO", "CS2GOsteam"]
+base_directory = "C:/Users/Kristaps/Desktop/TUP-main/"
+#site_names = ["Halo", "CS2GO", "CS2GOsteam"]
+site_names = ["Stash"]
 taxes = {
     "Halo": 3,
     "CS2GO": 2,
-    "CS2GOsteam": 13
+    "CS2GOsteam": 15,
+    "Buff": 2.5,
+    "Stash": 15,
+    "StashBit": 10,
+    "Port": 12
 }
 
 def main(rarity):
     directory_path = f"prices/{rarity}" 
     check_and_read_csvs(rarity, base_directory, directory_path, site_names, taxes)
 
-#main('Mil-Spec')
+#main('Restricted')
     
+#'''
 if __name__ == '__main__':
     if len(sys.argv) == 2:  # Script name is the first argument, so we expect 3 in total
         #start_time = time.time()

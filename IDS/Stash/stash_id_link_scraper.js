@@ -145,7 +145,8 @@ const prepareNewRecords = (skinData, existingIds, collectionLinkName) => {
   }).map(({ href, rarity }) => {
     const parts = href.split('/');
     const id = parts[parts.length - 2];
-    let itemName = parts[parts.length - 1].replace(/-/g, ' ');
+    //let itemName = parts[parts.length - 1].replace(/-/g, ' ');
+    let itemName = parts[parts.length - 1];
     //console.log(`Original: (${itemName})`);
     Object.entries(itemRename).forEach(([key, newValue]) => {
       const regex = new RegExp(key, 'g'); // Create a global regex from the key

@@ -321,25 +321,6 @@ async function readStash(page, item, wear, id) {
     const stashBitResults = await scrapeOtherWears(page, 'StashBit', useless)
     console.log(stashBitResults)
     updatePricesCSV(item, collection, quality, stashBitResults, 'StashBit', lastUpdated, floatValues.min_float, floatValues.max_float);
-
-    /*
-    const lastUpdatedText = await page.evaluate(() => {
-        const updateElement = document.querySelector('.tab-pane.active .price-modified-time p.text-center.small.nomargin');
-        if (updateElement) {
-            const fullText = updateElement.textContent.trim();
-            const match = fullText.match(/updated (\d+ (minute[s]?|second[s]?) ago)/);
-            return match ? match[1] : 'Time not found';
-        }
-        return 'Update element not found';
-    });
-    
-    console.log(`Last updated: ${lastUpdatedText}`);
-
-    //const timestamp = getCurrentTimestamp();
-
-    const lastUpdated = getLastUpdatedTimestamp(lastUpdatedText);
-    console.log(`Last updated timestamp: ${lastUpdated}`);
-    */
 }
 
 (async () => {

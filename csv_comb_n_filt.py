@@ -4,15 +4,15 @@ import time
 import sys
 import numpy as np
 
-def read_links_csv(file_path, collection, quality): # Read the links CSV
+def read_links_csv(file_path, collection, rarity): # Read the links CSV
     links = pd.read_csv(file_path)
-    filtered_links = links[(links['collection'] == collection) & (links['quality'] == quality)] # Filter based on collection and quality
+    filtered_links = links[(links['Collection'] == collection) & (links['Rarity'] == rarity)] # Filter based on collection and quality
     return filtered_links
 
-def process_item_data(item_name, collection, quality, wear_levels):
+def process_item_data(item_name, collection, rarity, wear_levels):
     item_combined_data = pd.DataFrame()
     for wear in wear_levels:
-        file_path = f"items/{quality}/{collection}/{item_name}_({wear}).csv"
+        file_path = f"items/{rarity}/{collection}/{item_name}_({wear}).csv"
         if os.path.exists(file_path):
             data = pd.read_csv(file_path)
             valid_data = data.loc[(data['Float'] > 0) & (data['Float'] < 1)]
@@ -68,15 +68,16 @@ def new_filter_data(combined_data, filter_count):
 
     return filtered_data
 
-def main(collection, quality):
+def main(collection, rarity):
     wear_levels = ["FN", "MW", "FT", "WW", "BS"]
-    links_file_path = f'links/links_{quality}.csv'
-    filtered_links = read_links_csv(links_file_path, collection, quality)
+    #links_file_path = f'links/links_{rarity}.csv'
+    links_file_path = f'IDS/Stash/stash_ids.csv'
+    filtered_links = read_links_csv(links_file_path, collection, rarity)
     combined_data = pd.DataFrame()
     for _, row in filtered_links.iterrows():
-        item_name = row['item']
+        item_name = row['Item']
         #print(item_name)
-        item_data = process_item_data(item_name, collection, quality, wear_levels)
+        item_data = process_item_data(item_name, collection, rarity, wear_levels)
         combined_data = pd.concat([combined_data, item_data])
 
     #print(combined_data)
@@ -107,16 +108,15 @@ def main(collection, quality):
     #print(final_data.head(10))
     print(final_data)
     
-    final_data.to_csv(f"items/{quality}/{collection}/_{quality}_comb_n_filt.csv", index=False)    
+    final_data.to_csv(f"items/{rarity}/{collection}/_{rarity}_comb_n_filt.csv", index=False)    
 
 #collection = 'Clutch'
 
-collection = 'Danger_Zone'
-quality = 'Classified'
-#main(collection, quality)
-#'''
+collection = 'Revolution'
+rarity = 'Restricted'
+'''
 if __name__ == '__main__':
-    main(collection, quality)
+    main(collection, rarity)
 '''
 
 if __name__ == '__main__':
@@ -126,5 +126,5 @@ if __name__ == '__main__':
         #end_time = time.time() - start_time
         #print(f'Time: {end_time}')
     else:
-        print("Incorrect number of arguments provided. Expected 'collection' and 'quality'.")
+        print("Incorrect number of arguments provided. Expected 'collection' and 'rarity'.")
 #'''
