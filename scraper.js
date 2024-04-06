@@ -20,6 +20,8 @@ const timestampCutoffTime = 60
 
 let haloIDCSV, buffIDCSV, stashIDCSV;
 
+const allRarities = ['Consumer', 'Industrial', 'Mil-Spec', 'Restricted', 'Classified', 'Covert'];
+
 const conditionMappings = {
     'Factory New': 'FN',
     'Minimal Wear': 'MW',
@@ -33,6 +35,18 @@ const invertedConditionMappings = Object.keys(conditionMappings).reduce((acc, ke
     acc[abbr] = key; // Assign the full name as the value for the abbreviation key
     return acc;
 }, {});
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        // Pick a random index from 0 to i
+        const j = Math.floor(Math.random() * (i + 1));
+
+        // Swap elements array[i] and array[j]
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+
+    return array;
+}
 
 async function readCsv(filePath) {
     try {
@@ -159,6 +173,51 @@ async function acceptCookies(page, cookieButtonXPath) {
     } catch (error) {
         console.error('Error accepting cookies:', error);
     }
+}
+
+function determinePossibleWears(minFloat, maxFloat) {
+    const wearRanges = {
+        FN: { min: 0.00, max: 0.07 },
+        MW: { min: 0.07, max: 0.15 },
+        FT: { min: 0.15, max: 0.38 },
+        WW: { min: 0.38, max: 0.45 },
+        BS: { min: 0.45, max: 1.00 }
+    };
+
+    const possibleWears = [];
+
+    for (const [wear, range] of Object.entries(wearRanges)) {
+        if (minFloat < range.max && maxFloat >= range.min) {
+            possibleWears.push(wear);
+        }
+    }
+
+    return possibleWears;
+}
+
+function getItemsByCollectionAndRarity(csvContent, collection, rarity) {
+    // Split the CSV content into lines and trim each line
+    const lines = csvContent.trim().split('\n').map(line => line.trim());
+
+    // Filter lines by collection and rarity, then extract the item names
+    const items = lines
+        .map(line => line.split(','))  // Split each line into fields
+        .filter(fields => fields[0] === collection && fields[1] === rarity)  // Filter by collection and rarity
+        .map(fields => fields[2]);  // Extract the item name
+
+    return items;
+}
+
+function getUpperRarity(rarity, rarities) {
+    const index = rarities.indexOf(rarity);
+
+    // Check if the rarity is found and it's not the last element
+    if (index !== -1 && index < rarities.length - 1) {
+        return rarities[index + 1];
+    }
+
+    // Return null or an appropriate value if there's no upper rarity
+    return null;
 }
 
 async function updatePricesCSV(itemNameUnd, collection, rarity, otherWearResults, source, timestamp = getCurrentTimestamp(), minFloat = null, maxFloat = null) {
@@ -416,7 +475,7 @@ async function scrapeItems(page, item, wear, source, totalItems, exchangeRatio, 
             break;
         }
 
-        const lastItemTimeout = 5;
+        const lastItemTimeout = 6;
         if (!newItemsAdded) {
             await randomScrollPage(page, 150, 300);
             await simulateMouseMovements(page, 5, width, height);
@@ -586,6 +645,7 @@ function getStashID(csvContent, item, collection, rarity) {
 }
 
 async function scrapeStash(page, item, collection, rarity) {
+    console.log(`Item: ${item}`);
     const source = 'Stash';
     console.log(source);
     //const collection = 'Prisma';
@@ -621,12 +681,7 @@ async function scrapeStash(page, item, collection, rarity) {
 
     await randomScrollPage(page, 100, 400);
 
-
-
     let useless;
-    //const collection = 'Prisma';
-    //const quality = 'Restricted';
-
 
     const floatValues = await page.evaluate(() => {
         const minFloatElement = document.querySelector('.wear-min-value');
@@ -650,21 +705,25 @@ async function scrapeStash(page, item, collection, rarity) {
 
     await randomScrollPage(page, 100, 400);
 
-    const stashResults = await scrapeOtherWears(page, source)
+    const stashResults = await scrapeOtherWears(page, source);
     //console.log(stashResults)
     updatePricesCSV(item, collection, rarity, stashResults, source, lastUpdated, floatValues.min_float, floatValues.max_float);
 
 
-    const stashBitResults = await scrapeOtherWears(page, 'StashBit')
-    //console.log(stashBitResults)
+    const stashBitResults = await scrapeOtherWears(page, 'StashBit');
+    //console.log(stashBitResults);
     updatePricesCSV(item, collection, rarity, stashBitResults, 'StashBit', lastUpdated, floatValues.min_float, floatValues.max_float);
 
     //await waitForRandomTimeout(page, 30000, 50000);
+
+    await runPythonScript('./prices_csv_combiner.py', [rarity]);
+
+    return floatValues;
 }
 
 async function scrapeHalo(page, item, wear, collection, rarity) {
-    const source = 'Halo'
-    console.log(source)
+    const source = 'Halo';
+    console.log(source);
 
     const id = getId(haloIDCSV, item, wear);
     //console.log(id);
@@ -689,7 +748,7 @@ async function scrapeHalo(page, item, wear, collection, rarity) {
     const cookieButtonXPath = '//*[@id="bodyEle"]/div[1]/div[2]/div/p[4]/button/span';
     await acceptCookies(page, cookieButtonXPath);
 
-    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, useless, width, height)
+    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, useless, width, height);
     await waitForRandomTimeout(page, 250, 750);
     //console.log(results)
     
@@ -697,8 +756,8 @@ async function scrapeHalo(page, item, wear, collection, rarity) {
 }
 
 async function scrapeCS2GO(page, item, wear, collection, rarity) {
-    const source = 'CS2GO'
-    console.log(source)
+    const source = 'CS2GO';
+    console.log(source);
 
     const searchName = (item + '-').toLowerCase().replace(/[_\.]/g, '-').replace(/--+/g, '-').replace(/'/g, '-');
     const searchWear = invertedConditionMappings[wear.toUpperCase()].toLowerCase().replace(/\s/g, "-");
@@ -720,11 +779,11 @@ async function scrapeCS2GO(page, item, wear, collection, rarity) {
     const cookieButtonXPath = '//*[@id="app"]/div[4]/div/div[2]/div[2]';
     await acceptCookies(page, cookieButtonXPath);
 
-    await waitForRandomTimeout(page, 250, 1000)
-
-    const results = await scrapeItems(page, item, wear.toUpperCase(), source, useless, totalItems, width, height)
     await waitForRandomTimeout(page, 250, 1000);
-    return results
+
+    const results = await scrapeItems(page, item, wear.toUpperCase(), source, useless, totalItems, width, height);
+    await waitForRandomTimeout(page, 250, 1000);
+    return results;
 }
 
 async function scrapeBuff(page, item, wear, collection, rarity) {
@@ -753,65 +812,27 @@ async function scrapeBuff(page, item, wear, collection, rarity) {
 
     //await waitForRandomTimeout(page, 30000, 30000);
 
-    updatePricesCSV(item, collection, rarity, otherWearResults, source); // update the prices for other wears in the pricesCSV
+    await updatePricesCSV(item, collection, rarity, otherWearResults, source); // update the prices for other wears in the pricesCSV
 
-    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, exchangeRatio, width, height)
-    await waitForRandomTimeout(page, 250, 750);
+    await randomScrollPage(page, 150, 300);
+
+    await waitForRandomTimeout(page, 500, 1500);
+
+    const results = await scrapeItems(page, item, wear.toUpperCase(), source, totalItems, exchangeRatio, width, height);
+    await waitForRandomTimeout(page, 1000, 1000);
     //console.log(results)
     
     return results;
 }
 
-(async () => {
-    stashIDCSV = await readCsv('C:/Users/Kristaps/Desktop/TUP-main/IDS/Stash/stash_ids.csv');
-    haloIDCSV = await readCsv('C:/Users/Kristaps/Desktop/TUP-main/IDS/Halo/halo_ids.csv');
-    buffIDCSV = await readCsv('C:/Users/Kristaps/Desktop/TUP-main/IDS/Buff/buff_ids.csv');
-    //console.log(haloIDCSV);
-
-    //const collection = 'Clutch';
-    //const collection = 'Danger_Zone';
-    //const collection = 'Revolution';
-    //const collection = 'Safehouse';
-    const collection = 'Anubis';
-    
-    
-    //const quality = 'Mil-Spec';
-    const rarity = 'Restricted';
-    //const quality = 'Classified';
-    
-    const wear = 'fn'.toUpperCase();
-    //const wears = ['fn', 'mw', 'ft', 'ww', 'bs']
-    //const items = ['MP5-SD_Phosphor', 'Desert_Eagle_Mecha_Industries', 'UMP-45_Momentum']
-    //const items = ['USP-S_Cortex']
-    //const items = ['Sawed-Off_Black_Sand']
-    //const wears = ['fn', 'ww', 'bs']
-    //const wears = ['mw']
-    //const item = 'P90_Neoqueen';
-    //const item = 'Glock-18_Umbral_Rabbit';
-    const item = "Nova_Sobek's_Bite";
-
+async function siteItemScrapers(page, item, wear, collection, rarity) {
+    console.log('');
     console.log(`Item: ${item}`);
     console.log(`Wear: ${wear}`);
-
-
-    //const directoryPath = path.join(__dirname, rarity, collection); // Create a path for the subfolder
-
-    const browser = await puppeteer.launch({ headless: false });
-    const page = await browser.newPage();
-
-    //let itemResults = [];
-    // /*
-    try {
-        await scrapeStash(page, item, collection, rarity);
-        //itemResults = [...itemResults, ...resultsFromHalo];
-    } catch (error) {
-        console.error(`Error scraping Stash for item ${item}: ${error}`);
-    }
 
     let itemResults = [];
     //let csvFileName;
     //const csvFileName = `${item}_(${wear}).csv`;
-    
     
     try {
         const resultsFromHalo = await scrapeHalo(page, item, wear, collection, rarity);
@@ -870,12 +891,109 @@ async function scrapeBuff(page, item, wear, collection, rarity) {
         console.log(`CSV for ${item} in ${wear} not written (empty)`);
     }
 
-    await waitForRandomTimeout(page, 100, 500);
+    //await waitForRandomTimeout(page, 100, 500);
 
     await runPythonScript('./prices_csv_combiner.py', [rarity]);
 
     await runPythonScript('./csv_comb_n_filt.py', [collection, rarity]);
+}
+
+(async () => {
+    stashIDCSV = await readCsv('C:/Users/Kristaps/Desktop/TUP-main/IDS/Stash/stash_ids.csv');
+    haloIDCSV = await readCsv('C:/Users/Kristaps/Desktop/TUP-main/IDS/Halo/halo_ids.csv');
+    buffIDCSV = await readCsv('C:/Users/Kristaps/Desktop/TUP-main/IDS/Buff/buff_ids.csv');
+
+    const browser = await puppeteer.launch({ headless: false });
+    const page = await browser.newPage();
+
+    //console.log(haloIDCSV);
+
+    //const rarity = 'Consumer';
+    //const rarity = 'Industrial';
+    //const rarity = 'Mil-Spec';
+    const rarity = 'Restricted';
+    //const rarity = 'Classified';
+
+    const upperRarity = getUpperRarity(rarity, allRarities);
+
+    //const collection = 'Clutch';
+    //const collection = 'Danger_Zone';
+    //const collection = 'Revolution';
+    //const collection = 'Safehouse';
+    //const collection = 'Anubis';
+    const collections = ['Revolution'];
+    
+    for (const collection of collections) {
+
+        //const wear = 'fn'.toUpperCase();
+        //const wears = ['fn', 'mw', 'ft', 'ww', 'bs']
+        //const items = ['MP5-SD_Phosphor', 'Desert_Eagle_Mecha_Industries', 'UMP-45_Momentum']
+        //const items = ['USP-S_Cortex']
+        //const items = ['Sawed-Off_Black_Sand']
+        //const wears = ['fn', 'ww', 'bs']
+        //const wears = ['mw']
+        //const item = 'P90_Neoqueen';
+        //const item = 'Glock-18_Umbral_Rabbit';
+        //const item = "Nova_Sobek's_Bite";
+        //const items = ['Glock-18_Umbral_Rabbit', 'P90_Neoqueen']
+        const items = getItemsByCollectionAndRarity(stashIDCSV, collection, rarity);
+
+        //console.log(`Item: ${item}`);
+
+        let remainingWears = {};
+
+        for (const item of items) {
+            try {
+                const floatValues = await scrapeStash(page, item, collection, rarity);
+                //itemResults = [...itemResults, ...resultsFromHalo];
+            } catch (error) {
+                console.error(`Error scraping Stash for item ${item}: ${error}`);
+            }
+
+            //const possibleWears = determinePossibleWears(floatValues.min_float, floatValues.max_float);
+            const possibleWears = [ 'FT', 'WW' ];
+            const shuffledWears = shuffleArray([...possibleWears]);
+
+            remainingWears[item] = shuffledWears.slice(1); // Store remaining types, excluding the first which will be processed now
+
+            // Call Regular for the first type immediately
+            if (shuffledWears.length > 0) {
+                //console.log(`Item: ${item}`);
+                //console.log(`Wear: ${shuffledWears[0]}`);
+
+                //await callRegularFunction(item, shuffledWears[0]);
+                await siteItemScrapers(page, item, shuffledWears[0], collection, rarity);
+            }
+        }
+
+        // Second pass: Process remaining types in a round-robin fashion
+        let itemsWithUnreadWears = Object.keys(remainingWears);
+        while (itemsWithUnreadWears.length > 0) {
+            for (const item of itemsWithUnreadWears) {
+                if (remainingWears[item].length > 0) {
+                    const wear = remainingWears[item].shift(); // Get and remove the first type from the remaining list
+                    //await callRegularFunction(item, type);
+                    await siteItemScrapers(page, item, wear, collection, rarity);
+                }
+            }
+            // Update the list of items that still have remaining types to process
+            itemsWithUnreadWears = itemsWithUnreadWears.filter(item => remainingWears[item].length > 0);
+        }
+
+    /*
+
+    for (const wear in possibleWears) {
+
+        console.log(`Item: ${item}`);
+        console.log(`Wear: ${wear}`);
+        
+        await siteItemScrapers(page, item, wear, collection, rarity);
+
+        await waitForRandomTimeout(page, 100, 500);
             
+    }
+    */
+    }
 
     await browser.close();
 })();

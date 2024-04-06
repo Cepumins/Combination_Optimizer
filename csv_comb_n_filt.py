@@ -80,6 +80,11 @@ def main(collection, rarity):
         item_data = process_item_data(item_name, collection, rarity, wear_levels)
         combined_data = pd.concat([combined_data, item_data])
 
+    all_file_path = f'items/{rarity}/{collection}/all_items.csv'
+    if os.path.exists(all_file_path):
+        all_items_data = pd.read_csv(all_file_path)
+        combined_data = pd.concat([combined_data, all_items_data])
+
     #print(combined_data)
     combined_data = combined_data.rename(columns={'Index': 'Item_ID'})
     #print(combined_data)
