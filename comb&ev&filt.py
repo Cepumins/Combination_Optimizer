@@ -954,9 +954,9 @@ def main(all_collections, rarities):
 #all_collections = ["Clutch"]
 #all_collections = ["Danger_Zone", "Clutch"]
 #all_collections = ["Danger_Zone"]
-#all_collections = ["Revolution"]
+all_collections = ["Revolution"]
 #all_collections = ["Danger_Zone", "Revolution"]
-all_collections = ["Anubis", 'Revolution']
+#all_collections = ["Anubis", 'Revolution']
 rarities = ["Classified"]
 
 #rarities = ["Covert"]

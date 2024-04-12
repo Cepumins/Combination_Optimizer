@@ -471,7 +471,7 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
         priceSelector = '.ItemPreview-priceValue .Tooltip-link';
         itemSelector = '.ItemPreview-itemImage img';
         lastItemTimeout = 20;
-    } else if (source === 'DMarket') {
+    } else if (source === 'DM') {
         floatSelector = '.o-qualityChart__infoValue span';
         priceSelector = '.c-asset__priceNumber';
         itemSelector = '.c-asset__img'; 
@@ -511,51 +511,59 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
 
             floats.forEach((float, index) => {
                 if (!seenFloats.has(float)) {
-                    seenFloats.add(float);
-
-                    //console.log('gets after floats');
-
-                    //const float = floats[index].trim();
-                    const price = prices[index].trim();
-                    const cleanPrice = price.replace(/[^0-9.]+/g, "");
-                    //const itemIdentifier = `${float}-${cleanPrice}`; // Use both float and cleaned price for uniqueness
                     const altText = itemAlts[index];
-                    const [fullName, conditionText] = altText.split(' (');
-                    const name = fullName.trim().replace(/ \|\s/g, '_').replace(/ /g, '_');
-                    const condition = conditionText.replace(')', '').trim(); // Assuming the condition is at the end within parentheses
-                    const conditionAbbr = conditionMappings[condition] || condition;
-                    
-                    let realFloat, usdPrice;
-                    if (source === 'Port') {
-                        //realFloat = (parseFloat(float) + 0.00075).toFixed(6);
-                        realFloat = parseFloat((parseFloat(float) + 0.00075).toFixed(6));
-                        //usdPrice = (parseFloat(cleanPrice) * exchangeRatio).toFixed(6);
-                        usdPrice = parseFloat((parseFloat(cleanPrice) * exchangeRatio).toFixed(6));
-                    } else if (source === 'DMarket') {
-                        realFloat = parseFloat((parseFloat(float) + 0.000025).toFixed(6)); // adding 0.000025 instead would assume that, on average, the real value might be halfway between the displayed value and the next higher value at four decimal places.
-                        // 0.000049;
-                        usdPrice = parseFloat(cleanPrice);
-                    } else if (source === 'Monkey') {
-                        cleanFloat = float.replace(/[^0-9.]+/g, "");
-                        realFloat = parseFloat(cleanFloat/100); 
-                        usdPrice = parseFloat(cleanPrice);
-                    } else {
-                        realFloat = float;
-                        usdPrice = cleanPrice;
-                    }
+                    if (!altText.includes('StatTrak')) {
+                        seenFloats.add(float);
 
-                    records.push({
-                        index: itemIndex++,
-                        price: usdPrice,
-                        float: realFloat,
-                        condition: conditionAbbr, // Assumes itemConditionAbbr is globally defined or passed in
-                        name: name, // Assumes itemNameUnd is globally defined or passed in
-                        site: source,
-                        timestamp: timestamp
-                    });
-                    console.log(`${itemIndex}: ${name} - ${float} (${price}) at ${timestamp}`);
-                    newItemsAdded = true;
-                    lastItemTime = new Date();
+                        //console.log('gets after floats');
+
+                        //const float = floats[index].trim();
+                        const price = prices[index].trim();
+                        const cleanPrice = price.replace(/[^0-9.]+/g, "");
+                        //const itemIdentifier = `${float}-${cleanPrice}`; // Use both float and cleaned price for uniqueness
+                        
+                        //const altText = itemAlts[index];
+                        const [fullName, conditionText] = altText.split(' (');
+                        const name = fullName.trim().replace(/ \|\s/g, '_').replace(/ /g, '_');
+                        const condition = conditionText.replace(')', '').trim(); // Assuming the condition is at the end within parentheses
+                        const conditionAbbr = conditionMappings[condition] || condition;
+                        
+                        let realFloat, usdPrice;
+                        if (source === 'Port') {
+                            //realFloat = (parseFloat(float) + 0.00075).toFixed(6);
+                            realFloat = parseFloat((parseFloat(float) + 0.0008).toFixed(6));
+                            //usdPrice = (parseFloat(cleanPrice) * exchangeRatio).toFixed(6);
+                            usdPrice = parseFloat((parseFloat(cleanPrice) * exchangeRatio).toFixed(6));
+                        } else if (source === 'DM') {
+                            realFloat = parseFloat((parseFloat(float) + 0.00003).toFixed(6)); // adding 0.000025 instead would assume that, on average, the real value might be halfway between the displayed value and the next higher value at four decimal places.
+                            // 0.000049;
+                            usdPrice = parseFloat(cleanPrice);
+                        } else if (source === 'Monkey') {
+                            cleanFloat = float.replace(/[^0-9.]+/g, "");
+                            realFloat = parseFloat(cleanFloat/100); 
+                            //usdPrice = (parseFloat(cleanPrice) * 0.65).toFixed(6);
+                            usdPrice = (parseFloat(cleanPrice) / 1.35).toFixed(6);
+                        } else if (source === 'Money') {
+                            realFloat = parseFloat((parseFloat(float) + 0.00008).toFixed(6));
+                            usdPrice = (parseFloat(cleanPrice) / 1.3).toFixed(6);
+                        } else {
+                            realFloat = float;
+                            usdPrice = cleanPrice;
+                        }
+
+                        records.push({
+                            index: itemIndex++,
+                            price: usdPrice,
+                            float: realFloat,
+                            condition: conditionAbbr, // Assumes itemConditionAbbr is globally defined or passed in
+                            name: name, // Assumes itemNameUnd is globally defined or passed in
+                            site: source,
+                            timestamp: timestamp
+                        });
+                        console.log(`${itemIndex}: ${name} - ${float} (${price}) at ${timestamp}`);
+                        newItemsAdded = true;
+                        lastItemTime = new Date();
+                    }
                 }
             });
 
@@ -800,8 +808,8 @@ async function scrapePort(page, collection, rarity) {
     return results;
 }
 
-async function scrapeDMarket(page, collection, rarity) {
-    const source = 'DMarket';
+async function scrapeDM(page, collection, rarity) {
+    const source = 'DM';
     console.log(source);
 
     //const id = getId(haloIDCSV, item, wear);
@@ -815,7 +823,7 @@ async function scrapeDMarket(page, collection, rarity) {
 
     const collectionID = collection.replace(/\s/g, '%20').toLowerCase();
 
-    const dMarketRarityMap = {
+    const dmRarityMap = {
         'Consumer': 'consumer%20grade',
         'Industrial': 'industrial%20grade',
         'Mil-Spec': 'mil-spec%20grade',
@@ -1081,11 +1089,11 @@ async function scrapeMonkey(page, collection, rarity) {
         
 
         try {
-            const dMarketResults = await scrapeDMarket(page, collection, rarity);
-            console.log(dMarketResults);
-            itemResults = [...itemResults, ...dMarketResults];
+            const dmResults = await scrapeDM(page, collection, rarity);
+            console.log(dmResults);
+            itemResults = [...itemResults, ...dmResults];
         } catch (error) {
-            console.error(`Error scraping DMarket for collection ${collection} at ${rarity}: ${error}`);
+            console.error(`Error scraping DM for collection ${collection} at ${rarity}: ${error}`);
         }
 
 

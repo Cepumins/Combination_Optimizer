@@ -90,7 +90,7 @@ def check_and_read_csvs(rarity, base_directory, directory_path, site_names, taxe
 
 base_directory = "C:/Users/Kristaps/Desktop/TUP-main/"
 #site_names = ["Halo", "CS2GO", "CS2GOsteam"]
-site_names = ["Stash"]
+site_names = ['A_Port', 'A_DM']
 taxes = {
     "Halo": 3,
     "CS2GO": 2,
@@ -98,15 +98,16 @@ taxes = {
     "Buff": 2.5,
     "Stash": 15,
     "StashBit": 10,
-    "Port": 12
+    "A_Port": 12,
+    'A_DM': 3
 }
 
 def main(rarity):
     directory_path = f"prices/{rarity}" 
     check_and_read_csvs(rarity, base_directory, directory_path, site_names, taxes)
 
-#main('Restricted')
-    
+#main('Classified')
+
 #'''
 if __name__ == '__main__':
     if len(sys.argv) == 2:  # Script name is the first argument, so we expect 3 in total
