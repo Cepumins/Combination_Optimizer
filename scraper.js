@@ -1,9 +1,37 @@
-const puppeteer = require("puppeteer-extra");
-const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const AnonymizeUA = require('puppeteer-extra-plugin-anonymize-ua');
+const UserPreferences = require('puppeteer-extra-plugin-user-preferences');
+const BlockResources = require('puppeteer-extra-plugin-block-resources');
+
+// Use the stealth plugin
 const stealth = StealthPlugin();
-//stealth.enabledEvasions.delete('chrome.runtime');
 stealth.enabledEvasions.delete('iframe.contentWindow');
+//puppeteer.use(StealthPlugin());
 puppeteer.use(stealth);
+
+// Anonymize User-Agent
+puppeteer.use(AnonymizeUA());
+
+// Set user preferences
+puppeteer.use(UserPreferences({
+    userPrefs: {
+        webkit: {
+            webprefs: {
+                default_font_size: 16
+            }
+        }
+    }
+}));
+
+// Block images, stylesheets, and fonts
+/*
+puppeteer.use(BlockResources({
+    blockedTypes: new Set(['image', 'stylesheet', 'font'])
+}));
+*/
+
+
 // */
 const fsNormal = require('fs');
 const fs = require('fs').promises;
@@ -12,8 +40,10 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const { parse } = require('csv-parse/sync');
 const csv = require('csv-parser');
 const { spawn } = require('child_process');
+const { createCursor } = require('ghost-cursor');
 
 let haloIDCSV, buffIDCSV, stashIDCSV;
+let cursor;
 
 
 // rarity and wears
@@ -64,11 +94,35 @@ function runPythonScript(scriptPath, args = []) {
 }
 
 
+async function interceptCanvasFingerprinting(page) {
+    await page.evaluateOnNewDocument(() => {
+        // Overwrite the CanvasRenderingContext2D prototype's method
+        const getContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function() {
+            const context = getContext.apply(this, arguments);
+            if (context && arguments[0] === '2d') {
+                // Intercept and modify the canvas context methods here
+                const fillRect = context.fillRect;
+                context.fillRect = function() {
+                    fillRect.apply(this, arguments);
+                    console.log('fillRect method intercepted!');
+                };
+                // Add more method interceptions as needed
+            }
+            return context;
+        };
+    });
+    console.log('Canvas fingerprinting interception script set to run on new pages.');
+}
+
+
 // human sim functions
+/*
 async function waitForRandomTimeout(page, minTimeout, maxTimeout) {
-    const timeoutDuration = Math.floor(Math.random() * (maxTimeout - minTimeout + 1)) + minTimeout;
+    const timeoutDuration = Math.round(Math.random() * (maxTimeout - minTimeout + 1)) + minTimeout;
     await page.waitForTimeout(timeoutDuration);
 }
+
 
 function getRandomWeightedTowardsCenter() {
     const numRandom = 10; // Increase for a tighter concentration around the mean
@@ -78,7 +132,18 @@ function getRandomWeightedTowardsCenter() {
     }
     return sum / numRandom;
 }
+*/
 
+function getRandomWeightedTowardsCenterWithRolls(rolls) {
+    //const numRandom = 10; // Increase for a tighter concentration around the mean
+    let sum = 0;
+    for (let i = 0; i < rolls; i++) {
+        sum += Math.random();
+    }
+    return sum / rolls;
+}
+
+/*
 async function simulateMouseMovements(page, moveCount, width, height) {  // Simulate irregular mouse movements by randomly moving the mouse around within the viewport dimensions
     const timesToMove = Math.floor(Math.random() * moveCount + 1);
     for (let i = 0; i < timesToMove+1; i++) {
@@ -100,6 +165,7 @@ async function randomScrollPage(page, minScroll, maxScroll) {
     }, minScroll, maxScroll);
 }
 
+
 async function moveAndScroll(page, width, height, moveCount = 1, minScroll = 10, maxScroll = 50, minX = 0, minY = 0) {  // Simulate irregular mouse movements by randomly moving the mouse around within the viewport dimensions
     const timesToMove = Math.floor(Math.random() * moveCount + 1);
     for (let i = 0; i < timesToMove+1; i++) {
@@ -115,10 +181,36 @@ async function moveAndScroll(page, width, height, moveCount = 1, minScroll = 10,
         //console.log(`Moved to (${(100*x/(width+minX)).toFixed(2)}%, ${(100*y/(height+minY)).toFixed(2)}%, scrolled: ${deltaY})`);
     }
 }
+*/
+
+async function moveAndScrollWeighted(page, width, height, meanScroll = 50, minX = 0, minY = 0, moveCount = 2) {  // Simulate irregular mouse movements by randomly moving the mouse around within the viewport dimensions
+    const timesToMove = Math.round(Math.random() * moveCount + 1);
+    let totalScrolled = 0;
+    for (let i = 0; i < timesToMove+1; i++) {
+        const xCord = Math.round((getRandomWeightedTowardsCenterWithRolls(10)) * width) + minX;
+        const yCord = Math.round((getRandomWeightedTowardsCenterWithRolls(10) - 0.1) * height) + minY;
+        //await page.mouse.move(x, y, { steps: 5 }); // Move mouse to (x, y) with intermediate steps for smoother movement
+        const destination = { x: xCord, y: yCord };
+        await cursor.moveTo(destination);
+
+       // await waitForRandomTimeout(page, 10, 100);
+       await randomNormalTimeout(page, 50)
+
+        const deltaY = Math.round(getRandomWeightedTowardsCenterWithRolls(3) * 2 * meanScroll + 10);
+        await page.mouse.wheel({ deltaY });
+
+        totalScrolled += deltaY;
+
+        //console.log(`Moved to (${(100*x/(width+minX)).toFixed(2)}%, ${(100*y/(height+minY)).toFixed(2)}%, scrolled: ${deltaY})`);
+        console.log(`Moved to (${xCord}, ${yCord}) scrolled: ${deltaY})`);
+        
+    }
+    return totalScrolled;
+}
 
 
 // page functions
-async function initializePage(page, link, timeOut = 60000, wait = true) {
+async function initializePage(page, link, timeOut = 87000, wait = true) {
     const waitOptions = wait ? { waitUntil: 'networkidle0', timeout: timeOut } : { timeout: timeOut };
     await page.goto(link, waitOptions);
 
@@ -128,9 +220,10 @@ async function initializePage(page, link, timeOut = 60000, wait = true) {
             height: window.innerHeight
         };
     });
-    await page.mouse.move(Math.random() * dimensions.width, Math.random() * dimensions.height); // Perform a random starting mouse movement based on the page dimensions
-    await randomScrollPage(page, 50, 250); // Perform a random scroll on the page
-    await simulateMouseMovements(page, 3, dimensions.width, dimensions.height); // Simulate mouse movements across the page based on the page dimensions
+    //await page.mouse.move(Math.random() * dimensions.width, Math.random() * dimensions.height); // Perform a random starting mouse movement based on the page dimensions
+    //await randomScrollPage(page, 50, 250); // Perform a random scroll on the page
+    //await simulateMouseMovements(page, 3, dimensions.width, dimensions.height); // Simulate mouse movements across the page based on the page dimensions
+    //await moveAndScrollWeighted(page, dimensions.width, dimensions.height)
     return dimensions; // Return the dimensions for further use
 }
 
@@ -144,11 +237,12 @@ async function acceptCookies(page, cookieButtonXPath) {
             if (buttonBox) {
                 try {
                     await page.mouse.move(
-                        buttonBox.x + buttonBox.width / 2 + Math.floor(Math.random() * 10) - 5,
-                        buttonBox.y + buttonBox.height / 2 + Math.floor(Math.random() * 10) - 5,
+                        buttonBox.x + buttonBox.width / 2 + Math.round(Math.random() * 10) - 5,
+                        buttonBox.y + buttonBox.height / 2 + Math.round(Math.random() * 10) - 5,
                         { steps: 10 }
                     );
-                    await waitForRandomTimeout(page, 250, 1000);
+                    //await waitForRandomTimeout(page, 250, 1000);
+                    await randomNormalTimeout(page, 500)
                     await cookieButton.click();
                     console.log('Cookies accepted.');
                 } catch (clickError) {
@@ -169,20 +263,147 @@ async function acceptCookiesByText(page) {
     try {
         // Wait for any button that contains the text 'Accept' or 'Accept All' to be visible on the page
         await page.waitForFunction(
-            () => [...document.querySelectorAll('button')].some(button => button.innerText.includes('Accept')),
+            () => [...document.querySelectorAll('button')].some(
+                button => /accept|agree/i.test(button.innerText)
+            ),
             { timeout: 5000 }
         );
 
         // Click the button with the text 'Accept' or 'Accept All'
-        await page.evaluate(() => {
+        const buttonSelector = await page.evaluate(() => {
             const buttons = Array.from(document.querySelectorAll('button'));
             const targetButton = buttons.find(button => button.innerText.includes('Accept'));
-            if (targetButton) targetButton.click();
+            if (targetButton) {
+                //targetButton.click();
+                targetButton.setAttribute('data-target', 'accept-button');
+                return 'button[data-target="accept-button"]';
+            }
+            return null;
         });
+        if (buttonSelector) {
+            await page.waitForSelector(buttonSelector);
+            await cursor.click(buttonSelector);
+        }
 
         console.log('Cookies accepted using button text.');
     } catch (error) {
         console.error('Error accepting cookies:', error);
+    }
+}
+
+async function randomNormalTimeout(page, meanTimeout) {
+    const rolls = 3; // Increase for a tighter concentration around the mean
+    let sum = 0;
+    for (let i = 0; i < rolls; i++) {
+        sum += Math.random();
+    }
+    const randomNum = (sum / rolls) * 2;
+
+    const timeoutDuration = Math.round(randomNum * meanTimeout + 50);
+    console.log(`Waiting for ${timeoutDuration}ms`);
+    await page.waitForTimeout(timeoutDuration);
+}
+
+async function installMouseHelper(page) {
+    await page.evaluateOnNewDocument(() => {
+        // Install mouse helper only for pages where you want to see the cursor
+        window.addEventListener('DOMContentLoaded', () => {
+            const box = document.createElement('puppeteer-mouse-pointer');
+            const styleElement = document.createElement('style');
+            styleElement.innerHTML = `
+            puppeteer-mouse-pointer {
+                pointer-events: none;
+                position: absolute;
+                top: 0;
+                z-index: 10000;
+                left: 0;
+                width: 20px;
+                height: 20px;
+                background: rgba(255,165,0,0.7);
+                border: 1px solid white;
+                border-radius: 10px;
+                margin-top: -10px;
+                margin-left: -10px;
+                transition: background .2s, border-radius .2s, border-color .2s;
+            }
+            puppeteer-mouse-pointer.button-1 {
+                transition: none;
+                background: rgba(0,0,255,0.9);
+                border-color: white;
+                border-radius: 4px;
+            }
+            puppeteer-mouse-pointer.button-2 {
+                transition: none;
+                border-color: rgba(255,0,0,0.9);
+            }
+            puppeteer-mouse-pointer.button-3 {
+                transition: none;
+                border-radius: 4px;
+            }
+            puppeteer-mouse-pointer.button-4 {
+                transition: none;
+                border-color: rgba(255,255,0,0.9);
+            }
+            puppeteer-mouse-pointer.button-5 {
+                transition: none;
+                border-color: rgba(0,255,0,0.9);
+            }`;
+            document.head.appendChild(styleElement);
+            document.body.appendChild(box);
+            document.addEventListener('mousemove', event => {
+                box.style.left = event.pageX + 'px';
+                box.style.top = event.pageY + 'px';
+            }, true);
+            document.addEventListener('mousedown', event => {
+                box.classList.add('button-' + event.which);
+            }, true);
+            document.addEventListener('mouseup', event => {
+                box.classList.remove('button-' + event.which);
+            }, true);
+        });
+    });
+}
+
+async function clickAndWait(page, cursor, selector, text, timeout) {
+    try {
+        // Wait for the element to be available
+        await page.waitForSelector(selector);
+        
+        // Click the element using the provided cursor
+        await cursor.click(selector);
+        console.log(`Clicked on: ${text}`);
+        
+        // Wait for a random duration between minTimeout and maxTimeout
+        //await waitForRandomTimeout(page, minTimeout, maxTimeout);
+        await randomNormalTimeout(page, timeout);
+    } catch (error) {
+        console.error(`Error clicking on: ${text}:`, error);
+    }
+}
+
+async function clickAndWaitX(page, cursor, selector, text, timeout, isXPath = false) {
+    try {
+        let element;
+        if (isXPath) {
+            // Wait for the XPath and convert to ElementHandle
+            await page.waitForXPath(selector, { timeout: timeout*10 });
+            [element] = await page.$x(selector);
+        } else {
+            // Wait for the CSS selector
+            await page.waitForSelector(selector, { timeout: timeout*10 });
+            element = await page.$(selector);
+        }
+        await randomNormalTimeout(page, timeout);
+
+        if (element) {
+            // Use the ghost cursor to click on the ElementHandle
+            await cursor.click(element);
+            console.log(`Clicked on: ${text}`);
+        } else {
+            console.log(`Element not found: ${text}`);
+        }
+    } catch (error) {
+        console.error(`Error clicking on ${text}: `, error);
     }
 }
 
@@ -222,7 +443,7 @@ async function updatePricesCSV(itemNameUnd, collection, rarity, otherWearResults
 
     let pricesCSVNewItem = {
         Item: itemNameUnd,
-        Collection: collection,
+        Collection: collection.replace(/ /g, '_'),
         Rarity: rarity,
         //MinF: null,
         //MaxF: null,
@@ -315,6 +536,7 @@ async function updatePricesCSV(itemNameUnd, collection, rarity, otherWearResults
     }
 }
 
+/*
 async function scrapeOtherWears(page, source, exchangeRatio = null) {
     const otherWearResults = await page.evaluate((source, exchangeRatio) => {
         const items = [];
@@ -380,6 +602,7 @@ async function scrapeOtherWears(page, source, exchangeRatio = null) {
     }, source, exchangeRatio);
     return otherWearResults;
 }
+*/
 
 function getCurrentTimestamp() {
     const now = new Date();
@@ -388,17 +611,222 @@ function getCurrentTimestamp() {
 }
 
 
-// item scraper function
+// item scraper functions
+async function changeItemSorting(page, source, currentSort) {
+    let newSort;
+    try {
+        console.log('gets to changing function');
+        
+        /*
+        let cursorX, cursorY;
+        const { width: pageWidth, height: pageHeight } = await page.evaluate(() => {
+            return {
+                width: window.innerWidth,
+                height: window.innerHeight
+            };
+        });
+        
+        ({cursorX, cursorY} = await simulateMouseMovements(page, 1, pageWidth, pageHeight));
+        console.log(`cursorX: ${cursorX}, cursorY: ${cursorY}`);
+        */
+        //cursor = createCursor(page);
+        //console.log('creates cursor');
+        //await waitForRandomTimeout(page, 500, 2500);  // adjust the timeout according to the response time of the website
+        await randomNormalTimeout(page, 250);
+
+        if (source === 'Bit') {
+            // Click the sort dropdown to open it
+            const sortingButtonSelector = '#market > div.items-content > div.content-bar.main > div.btns-row.btns-ip.flex > div.dropdown.market-sorting > button';
+            //await page.waitForSelector(sortingButtonSelector);
+            //await cursor.click(sortingButtonSelector);
+            //console.log('Selected sorter');
+            //await waitForRandomTimeout(page, 500, 2500); 
+            await clickAndWait(page, cursor, sortingButtonSelector, 'sorting button', 1000);
+
+
+
+            if (currentSort === 'default') {
+                // Open the type of sorting dropdown
+                const sortingDropdownSelector = 'div#vs1__combobox.vs__dropdown-toggle';
+                //await page.waitForSelector(sortingDropdown);
+                //await cursor.click(sortingDropdown);
+                //console.log('Opened sorter types');
+                //await waitForRandomTimeout(page, 150, 1500);
+                await clickAndWait(page, cursor, sortingDropdownSelector, 'sorting dropdown', 500);
+
+                // Select 'Float' option from the dropdown
+                //({cursorX, cursorY} = await humanLikeMouseMove(page, 901, 699, cursorX, cursorY));
+                //await page.click('li#vs1__option-4.vs__dropdown-option'); // Selector for 'Float'
+                const floatSelector = 'li#vs1__option-4.vs__dropdown-option';
+                //await page.waitForSelector(floatSelector);
+                //await cursor.click(floatSelector);
+                //console.log('Selected floats order');
+                //await waitForRandomTimeout(page, 150, 1500);
+                await clickAndWait(page, cursor, floatSelector, 'float from dropdown', 500);
+
+                // Open the order direction dropdown (Lowest First/ Highest First)
+                //({cursorX, cursorY} = await humanLikeMouseMove(page, 1066, 567, cursorX, cursorY));
+                //await page.click('div#vs2__combobox.vs__dropdown-toggle');
+                const orderDropdownSelector = 'div#vs2__combobox.vs__dropdown-toggle';
+                //await page.waitForSelector(orderDropdown);
+                //await cursor.click(orderDropdown);
+                //console.log('Opened direction dropdown');
+                //await waitForRandomTimeout(page, 150, 1500);
+                await clickAndWait(page, cursor, orderDropdownSelector, 'order dropdown', 500);
+
+                // Select 'Lowest first' option
+                //({cursorX, cursorY} = await humanLikeMouseMove(page, 1087, 602, cursorX, cursorY));
+                //await page.click('li#vs2__option-0.vs__dropdown-option'); // Selector for 'Lowest first'
+                const lowestFirstSelector = 'li#vs2__option-0.vs__dropdown-option';
+                //await page.waitForSelector(lowestFirst);
+                //await cursor.click(lowestFirst);
+                //console.log('Selected lowest first');
+                //await waitForRandomTimeout(page, 150, 1500);
+                await clickAndWait(page, cursor, lowestFirstSelector, 'lowest first (ascending)', 500);
+
+                newSort = 'float';
+            } else if (currentSort === 'float') {
+                const sortingDropdownSelector = 'div#vs3__combobox.vs__dropdown-toggle';
+                await clickAndWait(page, cursor, sortingDropdownSelector, 'sorting dropdown', 500);
+
+                const discountSelector = 'li#vs3__option-2.vs__dropdown-option';
+                await clickAndWait(page, cursor, discountSelector, 'discount from dropdown', 500);
+
+                newSort = 'discount';
+            } else if (currentSort === 'discount') {
+                const sortingDropdownSelector = 'div#vs5__combobox.vs__dropdown-toggle';
+                await clickAndWait(page, cursor, sortingDropdownSelector, 'sorting dropdown', 500);
+
+                const priceSelector = 'li#vs5__option-0.vs__dropdown-option';
+                await clickAndWait(page, cursor, priceSelector, 'price from dropdown', 500);
+
+                const orderDropdownSelector = 'div#vs6__combobox.vs__dropdown-toggle';
+                await clickAndWait(page, cursor, orderDropdownSelector, 'order dropdown', 500);
+
+                const lowestFirstSelector = 'li#vs6__option-0.vs__dropdown-option';
+                await clickAndWait(page, cursor, lowestFirstSelector, 'lowest first (ascending)', 500);
+
+                newSort = 'price';
+            } else {
+                newSort = 'broken';
+            }
+
+            // Click the Apply button to apply the sorting
+            //({cursorX, cursorY} = await humanLikeMouseMove(page, 1084, 670, cursorX, cursorY));
+            //await page.click('button.btn.btn-primary'); // Simplified selector for the Apply button
+            const applyButtonSelector = '#market .items-content .content-bar.main .btns-row.btns-ip.flex .dropdown.active.market-sorting .body.default .actions button.btn.btn-primary';
+            //await page.waitForSelector(applyButtonSelector);
+            //await cursor.click(applyButtonSelector);
+            //console.log('Applied changes');
+            //await waitForRandomTimeout(page, 500, 2500); // Final wait to ensure application of settings
+            await clickAndWait(page, cursor, applyButtonSelector, 'apply changes', 750);
+
+            const closeSorterSelector = '#market .dropdown.active.market-sorting .btn-close';
+            await clickAndWait(page, cursor, closeSorterSelector, 'closed sorter', 500);
+        } 
+        else if (source === 'Money') {
+            const sortingDropdownSelector = 'div.bot-listing_header__2VZJJ button#downshift-1-toggle-button';
+            await clickAndWait(page, cursor, sortingDropdownSelector, 'sorting dropdown', 1000);
+
+            if (currentSort === 'default') {
+                const floatSelector = 'ul.csm_ui__options_list__05cf7 li#downshift-1-item-5';
+                await clickAndWait(page, cursor, floatSelector, 'float ascending order', 750);
+                newSort = 'float';
+            } else if (currentSort === 'float') {
+                const priceSelector = 'ul.csm_ui__options_list__05cf7 li#downshift-1-item-3';
+                await clickAndWait(page, cursor, priceSelector, 'price ascending order', 750);
+                newSort = 'price';
+            }
+        }
+        else if (source === 'Monkey') {
+            const sortingDropdownSelector = '#__layout > div > div.trade.main > div > div:nth-child(3) div.form-select__body';
+            await clickAndWait(page, cursor, sortingDropdownSelector, 'sorting dropdown', 1000);
+
+            if (currentSort === 'default') {
+                const floatSelector = '#__layout > div > div.trade.main > div > div:nth-child(3) > div.inventory-toolbar > div.form-item.form-select.inventory-toolbar-select.inventory-toolbar-sort.trailing.active.lite > div.select-list > div:nth-child(4)';
+                await clickAndWait(page, cursor, floatSelector, 'float ascending order', 750);
+                newSort = 'float';
+            } else if (currentSort === 'float') {
+                const priceSelector = '#__layout > div > div.trade.main > div > div:nth-child(3) > div.inventory-toolbar > div.form-item.form-select.inventory-toolbar-select.inventory-toolbar-sort.trailing.active.lite > div.select-list > div:nth-child(2)';
+                await clickAndWait(page, cursor, priceSelector, 'price ascending order', 750);
+                newSort = 'price';
+            }
+        }
+        else if (source === 'Port') {
+            const sortingDropdownSelector = '#content > div > div.CatalogPage-content > div.CatalogPage-header > div > div.CatalogHeader-right > div.CatalogHeader-sort > div';
+            await clickAndWait(page, cursor, sortingDropdownSelector, 'sorting dropdown', 1000);
+
+            if (currentSort === 'default') {
+                const floatSelector = '#content > div > div.CatalogPage-content > div.CatalogPage-header > div > div.CatalogHeader-right > div.CatalogHeader-sort > div > div > div:nth-child(7)';
+                await clickAndWait(page, cursor, floatSelector, 'float ascending order', 750);
+                newSort = 'float';
+            } else if (currentSort === 'float') {
+                const discountSelector = '#content > div > div.CatalogPage-content > div.CatalogPage-header > div > div.CatalogHeader-right > div.CatalogHeader-sort > div > div > div:nth-child(3)';
+                await clickAndWait(page, cursor, discountSelector, 'discount order', 750);
+                newSort = 'discount';
+            } else if (currentSort === 'discount') {
+                const priceSelector = '#content > div > div.CatalogPage-content > div.CatalogPage-header > div > div.CatalogHeader-right > div.CatalogHeader-sort > div > div > div:nth-child(5)';
+                await clickAndWait(page, cursor, priceSelector, 'price ascending order', 750);
+                newSort = 'price';
+            }
+        }
+        else if (source === 'DM') {
+            const sortingDropdownSelector = 'sort-items .o-select__current';
+            //const sortingDropdownSelector = 'body > app-root > mat-sidenav-container > mat-sidenav-content > exchange > div > div > market-side > div > filters > div > div > div:nth-child(6)';
+            
+            await clickAndWait(page, cursor, sortingDropdownSelector, 'sorting dropdown', 1000);
+            
+            const baseSelector = 'div.mat-mdc-menu-content.ng-tns-c185672549-5';
+            if (currentSort === 'default') {
+                //const newestSelector = `${baseSelector} > button:nth-child(4)`;
+                //const newestSelector = '#mat-menu-panel-1 > div > button:nth-child(4)';
+                //await clickAndWait(page, cursor, newestSelector, 'newest order', 750);
+                const newestSelector = '//button[span[contains(text(), "Date: Newest First")]]';
+                await clickAndWaitX(page, cursor, newestSelector, 'newest order', 750, true);
+                newSort = 'newest';
+            } else if (currentSort === 'newest') {
+                //const discountSelector = `${baseSelector} > button:nth-child(3)`;
+                //const discountSelector = '#cdk-overlay-3 #mat-menu-panel-1 > div > button:nth-child(3)';
+                //await clickAndWait(page, cursor, discountSelector, 'discount order', 750);
+                const discountSelector = '//button[span[contains(text(), "Best Discount")]]';
+                await clickAndWaitX(page, cursor, discountSelector, 'discount order', 750, true);
+                newSort = 'discount';
+            } else if (currentSort === 'discount') {
+                //const priceSelector = `${baseSelector} > button:nth-child(6)`;
+                //const priceSelector = '#cdk-overlay-3 #mat-menu-panel-1 > div > button:nth-child(6)';
+                //await clickAndWait(page, cursor, priceSelector, 'price ascending order', 750);
+                const priceSelector = '//button[span[contains(text(), "Price: Lowest First")]]';
+                await clickAndWaitX(page, cursor, priceSelector, 'price ascending order', 750, true);
+                newSort = 'price';
+            }
+        }
+
+        
+        console.log(`Changed sort order to ${newSort} for ${source}`);
+        //return newSort;
+    } catch (error) {
+        console.error(`Error changing sort order for ${source}:`, error);
+        //return 'broken';
+        newSort = 'broken';
+    }
+    return newSort;
+}
+
 async function scrapeCombinedItems(page, source, exchangeRatio, width, height, totalItems = null, minX = 0, minY = 0) {
     const startTime = new Date();
     const seenFloats = new Set();
     // const seenItems = new Set();
     let itemIndex = 1;
     const records = [];
+    let sortOrder = 'default';
+    let scrolledTimes = 0;
+    let scrolledAmount = 0;
+    let scrolledTotalAmount = 0;
 
-    //let lastItemTimeout = 5;
-    let aditionalTime = 5;
-    const totalAllowedTime = 45;
+    const baseItemTimeout = 5;
+    let currentItemTimeout = baseItemTimeout;
+    //let aditionalTime = 5;
+    const totalAllowedTime = 87;
     let lastItemTime = new Date();
 
     let floatSelector, priceSelector, itemSelector;
@@ -407,11 +835,12 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
         priceSelector = '.ItemPreview-priceValue .Tooltip-link';
         itemSelector = '.ItemPreview-itemImage img';
         //lastItemTimeout = 20;
-        let aditionalTime = 20;
+        //let aditionalTime = 20;
     } else if (source === 'DM') {
         floatSelector = '.o-qualityChart__infoValue span';
         priceSelector = '.c-asset__priceNumber';
         itemSelector = '.c-asset__img';
+        scrolledTimes = 1;
         //lastItemTimeout = 20;
     } else if (source === 'Monkey') {
         floatSelector = '.item-float.item-card__float';
@@ -428,12 +857,9 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
         //lastItemTimeout = 30;
     }
 
-    let floats, itemAlts;
-    let timeoutSaved = 0;
-    let timeToGiftNext = 0;
-    let thisItemTime;
+    let floats, prices, itemAlts;
 
-    await randomScrollPage(page, 50, 250);
+    //await randomScrollPage(page, 50, 250);
     while (true) {
         try {
             // floats
@@ -448,7 +874,17 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
             }
 
             // prices
-            const prices = await page.$$eval(priceSelector, elements => elements.map(el => el.textContent));
+            if (source === 'Bit') {
+                prices = await page.evaluate(() => {
+                    const items = Array.from(document.querySelectorAll('div.market-items > div')); // Select each item container
+                    return items.map(item => {
+                        const priceElement = item.querySelector('.item-price.flex .price .amount'); // Select the actual price within each item
+                        return priceElement ? priceElement.textContent.trim() : null; // Return the price text, ensuring it exists
+                    }).filter(price => price !== null); // Filter out any null values if the price wasn't found
+                });
+            } else {
+                prices = await page.$$eval(priceSelector, elements => elements.map(el => el.textContent));
+            }
 
             // itemAlts
             if (source === 'Bit') {
@@ -464,90 +900,168 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
 
             floats.forEach((float, index) => {
                 if (!seenFloats.has(float)) {
-                    seenFloats.add(float);
 
                     const altText = itemAlts[index];
-                    const price = prices[index].trim();
-                    const cleanPrice = price.replace(/[^0-9.]+/g, "");
+                    let validItem = false;
 
-                    let itemName, conditionAbbr;
-                    if (source === 'Bit' || source === 'Money') {
-                        ({ itemName, conditionAbbr } = processAltText(altText, source));
+                    if (source === 'Monkey') {
+                        if (!/stattrak/i.test(altText)) {
+                            // Scenario 1: 'monkey' source and no 'StatTrak' in altText
+                            validItem = true;
+                            //console.log('Condition met for adding float from "monkey" source without "StatTrak" in alt text.');
+                        } else {
+                            // Scenario 2: 'monkey' source and 'StatTrak' in altText
+                            //console.log('Condition not met. "StatTrak" present in alt text for "monkey" source.');
+                        }
                     } else {
-                        const [fullName, conditionText] = altText.split(' (');
-                        itemName = fullName.trim().replace(/ \|\s/g, '_').replace(/ /g, '_');
-                        const condition = conditionText.replace(')', '').trim();
-                        conditionAbbr = conditionMappings[condition] || condition;
+                        // Scenario 3: Any other source
+                        validItem = true;
+                        //console.log('Condition met for adding float from source other than "monkey".');
                     }
+
+                    // if source = 'monkey' then if altText doesnt include 'StatTrak' we only add it to seenFloats, if its other source we dont check the text
                     
-                    let realFloat, usdPrice;
-                    if (source === 'Port') {
-                        //realFloat = (parseFloat(float) + 0.00075).toFixed(6);
-                        realFloat = parseFloat((parseFloat(float) + 0.0008).toFixed(7));
-                        //usdPrice = (parseFloat(cleanPrice) * exchangeRatio).toFixed(6);
-                        usdPrice = parseFloat((parseFloat(cleanPrice) * exchangeRatio).toFixed(4));
-                    } else if (source === 'DM') {
-                        realFloat = parseFloat((parseFloat(float) + 0.00003).toFixed(7)); // adding 0.000025 instead would assume that, on average, the real value might be halfway between the displayed value and the next higher value at four decimal places.
-                        // 0.000049;
-                        usdPrice = parseFloat(cleanPrice);
-                    } else if (source === 'Monkey') {
-                        cleanFloat = float.replace(/[^0-9.]+/g, "");
-                        realFloat = parseFloat(cleanFloat/100); 
-                        //usdPrice = (parseFloat(cleanPrice) * 0.65).toFixed(6);
-                        usdPrice = (parseFloat(cleanPrice) / 1.35).toFixed(4);
-                    } else if (source === 'Bit') {
-                        realFloat = parseFloat((parseFloat(float) + 0.0000008).toFixed(7));
-                        usdPrice = parseFloat(cleanPrice);
-                    } else if (source === 'Money') {
-                        realFloat = parseFloat((parseFloat(float) + 0.00008).toFixed(7));
-                        usdPrice = (parseFloat(cleanPrice) / 1.3).toFixed(4);
-                    } else {
-                        realFloat = float;
-                        usdPrice = cleanPrice;
+                    if (validItem) {
+                        seenFloats.add(float);
+                        
+                        const price = prices[index].trim();
+                        const cleanPrice = price.replace(/[^0-9.]+/g, "");
+
+                        let itemName, conditionAbbr;
+                        if (source === 'Bit' || source === 'Money') {
+                            ({ itemName, conditionAbbr } = processAltText(altText, source));
+                        } else {
+                            const [fullName, conditionText] = altText.split(' (');
+                            itemName = fullName.trim().replace(/ \|\s/g, '_').replace(/ /g, '_');
+                            const condition = conditionText.replace(')', '').trim();
+                            conditionAbbr = conditionMappings[condition] || condition;
+                        }
+                        
+                        let realFloat, usdPrice;
+                        if (source === 'Port') {
+                            //realFloat = (parseFloat(float) + 0.00075).toFixed(6);
+                            realFloat = parseFloat((parseFloat(float) + 0.0008).toFixed(7));
+                            //usdPrice = (parseFloat(cleanPrice) * exchangeRatio).toFixed(6);
+                            usdPrice = parseFloat((parseFloat(cleanPrice) * exchangeRatio).toFixed(4));
+                        } else if (source === 'DM') {
+                            realFloat = parseFloat((parseFloat(float) + 0.00003).toFixed(7)); // adding 0.000025 instead would assume that, on average, the real value might be halfway between the displayed value and the next higher value at four decimal places.
+                            // 0.000049;
+                            usdPrice = parseFloat(cleanPrice);
+                        } else if (source === 'Monkey') {
+                            cleanFloat = float.replace(/[^0-9.]+/g, "");
+                            realFloat = parseFloat(cleanFloat/100); 
+                            //usdPrice = (parseFloat(cleanPrice) * 0.65).toFixed(6);
+                            usdPrice = (parseFloat(cleanPrice) / 1.35).toFixed(4);
+                        } else if (source === 'Bit') {
+                            realFloat = parseFloat((parseFloat(float) + 0.0000008).toFixed(7));
+                            usdPrice = parseFloat(cleanPrice);
+                        } else if (source === 'Money') {
+                            realFloat = parseFloat((parseFloat(float) + 0.00008).toFixed(7));
+                            usdPrice = (parseFloat(cleanPrice) / 1.3).toFixed(4);
+                        } else {
+                            realFloat = float;
+                            usdPrice = cleanPrice;
+                        }
+
+                        console.log(`${itemIndex}: ${itemName} - ${float} (${price}) at ${timestamp}`);
+                        records.push({
+                            index: itemIndex++,
+                            price: usdPrice,
+                            float: realFloat,
+                            condition: conditionAbbr, // Assumes itemConditionAbbr is globally defined or passed in
+                            name: itemName, // Assumes itemNameUnd is globally defined or passed in
+                            site: source,
+                            timestamp: timestamp
+                        });
+                        newItemsAdded = true;
+
+                        thisItemTime = new Date();
+                        //timeoutSaved = lastItemTime - thisItemTime + aditionalTime;
+
+                        //timeToGiftNext = Math.min(aditionalTime, timeoutSaved);
+                        //lastItemTime = thisItemTime;
+                        lastItemTime = new Date();
                     }
-
-                    records.push({
-                        index: itemIndex++,
-                        price: usdPrice,
-                        float: realFloat,
-                        condition: conditionAbbr, // Assumes itemConditionAbbr is globally defined or passed in
-                        name: itemName, // Assumes itemNameUnd is globally defined or passed in
-                        site: source,
-                        timestamp: timestamp
-                    });
-                    console.log(`${itemIndex-1}: ${itemName} - ${float} (${price}) at ${timestamp}`);
-                    newItemsAdded = true;
-
-                    thisItemTime = new Date();
-                    timeoutSaved = lastItemTime - thisItemTime + aditionalTime;
-
-                    timeToGiftNext = Math.min(aditionalTime, timeoutSaved);
-                    lastItemTime = thisItemTime;
-                    //}
                 }
             });
 
-            let itemTimeout = aditionalTime + Math.log(itemIndex+1) + timeToGiftNext;
+            //let itemTimeout = aditionalTime + Math.log(itemIndex+1) + timeToGiftNext;
+            currentItemTimeout = baseItemTimeout + Math.log(itemIndex+1);
+
             if (!newItemsAdded) {
                 //await randomScrollPage(page, 50, 500);
                 //await simulateMouseMovements(page, 2, width, height);
                 //await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 250)
-                await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 250, minX, minY)
+                //await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 250, minX, minY)
                 
-                if (new Date() - lastItemTime > (itemTimeout*1000)) {
+                if (new Date() - lastItemTime > (currentItemTimeout*1000)) {
                     console.log(`${itemIndex} items processed`);
-                    console.log(`No new items found in the last ${itemTimeout.toFixed(2)}s, exiting..`);
+                    console.log(`No new items found in the last ${currentItemTimeout.toFixed(2)}s, exiting..`);
                     break;
                 }
+
+                if (source === 'DM') {
+                    const popUpSelector = '#mat-mdc-dialog-0 > div > div > auth-dialog > div > div.c-authDialog__header > button';
+                    const elementExists = await page.waitForSelector(popUpSelector, { visible: true, timeout: 500 }).catch(e => false);
+                    if (elementExists) {
+                        console.log('DM Source - Pop up element found');
+                        //await randomNormalTimeout(page, 300);
+                        //await cursor.click(popUpSelector);
+                        await clickAndWait(page, cursor, popUpSelector, 'closed popup', 750);
+                        console.log('DM Source - Click performed on the pop up');
+                    }
+                }
+
+
+                if (sortOrder === 'price') {
+                    console.log("Proceeding with price sort order.");
+                    //await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 150, minX, minY)
+                    await moveAndScrollWeighted(page, width, height, meanScroll = 100, minX, minY, moveCount = 3);
+                } else if (sortOrder === 'broken') {
+                    console.log('something has gone wrong in the changing order function');
+                } else {
+
+                    await randomNormalTimeout(page, 300);
+                    if (scrolledTimes < 2) {
+                        scrolledTimes++;
+                        //await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 150, minX, minY)
+                        scrolledAmount = await moveAndScrollWeighted(page, width, height, meanScroll = 100, minX, minY, moveCount = 2);
+                        //scrolledTotalAmount += scrolledAmount;
+                        scrolledTotalAmount = await page.evaluate(() => {return window.scrollY;});
+                        //console.log(`Total scrolled pixels: ${scrolledTotalAmount}`);
+                    }
+                    else {
+                        while (scrolledTotalAmount > 0) {
+                            scrolledAmount = await moveAndScrollWeighted(page, width, height, meanScroll = -100, minX, minY, moveCount = 5);
+                            //scrolledTotalAmount += scrolledAmount;
+                            scrolledTotalAmount = await page.evaluate(() => {return window.scrollY;});
+                            //console.log(`Total scrolled pixels: ${scrolledTotalAmount}`);
+                        }
+                        await randomNormalTimeout(page, 250);
+                        
+                        sortOrder = await changeItemSorting(page, source, sortOrder);
+                        //await waitForRandomTimeout(page, 2000, 5000);
+                        scrolledTimes = -3;
+                        await randomNormalTimeout(page, 2500);
+                    }
+                    
+                    //await waitForRandomTimeout(page, 100, 500);
+
+
+                    lastItemTime = new Date();
+                }
+
+
                 //console.log(`Current timeout: ${itemTimeout}`);
-                console.log(`No new items found, current timer: ${((new Date() - lastItemTime)/1000).toFixed(2)} (timeout - ${itemTimeout.toFixed(2)}), checking again...`);
+                console.log(`No new items found, current timer: ${((new Date() - lastItemTime)/1000).toFixed(2)} (timeout - ${currentItemTimeout.toFixed(2)}), checking again...`);
             }
             if (new Date() - startTime > (totalAllowedTime*1000)) {
                 console.log(`${itemIndex} items processed`);
                 console.log(`Timeout (${totalAllowedTime}s) reached`);
                 break;
             }
-            await waitForRandomTimeout(page, 200, 1000);
+            //await waitForRandomTimeout(page, 200, 1000);
+            await randomNormalTimeout(page, 500);
         } catch (error) {
             console.error("Error encountered during scrapeCombinedItems: ", error);
             // Optionally, you can decide to break out of the loop after an error
@@ -558,7 +1072,7 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
     return records;
 }
 
-// stash functions
+/* // stash functions
 async function acceptCookiesTimed(page, cookieButtonXPath) {
     try {
         const timeoutPromise = new Promise((resolve, reject) => {
@@ -747,6 +1261,7 @@ async function scrapeStash(page, item, collection, rarity) {
 
     return floatValues;
 }
+*/
 
 // analyst determine possible wears from floats
 function determinePossibleWears(minFloat, maxFloat) {
@@ -771,6 +1286,7 @@ function determinePossibleWears(minFloat, maxFloat) {
 
 // analyst function
 async function scrapeAnalyst(page, item, collection, rarity) {
+    console.log('');
     const source = 'Analyst';
     console.log(source);
 
@@ -780,7 +1296,8 @@ async function scrapeAnalyst(page, item, collection, rarity) {
     const link = `https://csgo.steamanalyst.com/skin/${itemLinkName}`;
     const { width, height } = await initializePage(page, link, timeOut = 30000);
 
-    await waitForRandomTimeout(page, 1000, 2500);
+    //await waitForRandomTimeout(page, 1000, 2500);
+    await randomNormalTimeout(page, 1500)
 
     const floatValues = await page.evaluate(() => {
     // Select the container that holds the float values
@@ -859,6 +1376,7 @@ async function scrapeAnalyst(page, item, collection, rarity) {
 
 // port function
 async function scrapePort(page, collection, rarity) {
+    console.log('');
     const source = 'Port';
     console.log(source);
 
@@ -958,21 +1476,27 @@ async function scrapePort(page, collection, rarity) {
 
     const rarityID = portRarityMap[rarity];
 
-    const link = `https://skinport.com/market?sort=percent&order=desc&stattrak=0&souvenir=0&rarity=${rarityID}&collection=${id}`;
+    //const link = `https://skinport.com/market?sort=percent&order=desc&stattrak=0&souvenir=0&rarity=${rarityID}&collection=${id}`;
+    const link = `https://skinport.com/market?stattrak=0&souvenir=0&rarity=${rarityID}&collection=${id}`;
 
     const { width, height } = await initializePage(page, link, timeOut = 75000);
 
     let useless;
 
-    await waitForRandomTimeout(page, 250, 750);
+    //await waitForRandomTimeout(page, 250, 750);
+    await randomNormalTimeout(page, 500);
 
     const cookieButtonXPath = '//*[@id="root"]/div[3]/div/div[2]/button[1]/div';
     await acceptCookies(page, cookieButtonXPath);
+    //await acceptCookiesByText(page);
+
+    await randomNormalTimeout(page, 500);
 
     const eurusd = 1.08;
 
     const results = await scrapeCombinedItems(page, source, eurusd, width, height, useless);
     //await waitForRandomTimeout(page, 250, 750);
+    await randomNormalTimeout(page, 500);
     //console.log(results)
     
     return results;
@@ -980,11 +1504,14 @@ async function scrapePort(page, collection, rarity) {
 
 // dm function
 async function scrapeDM(page, collection, rarity) {
+    console.log('');
     const source = 'DM';
     console.log(source);
     let useless;
 
-    const collectionID = collection.replace(/\s/g, '%20').toLowerCase();
+    //const collectionID = collection.replace(/\s/g, '%20').toLowerCase();
+    const collectionName = collection.replace(/ &/g, '').toLowerCase();
+    const collectionID = encodeURIComponent(collectionName);
 
     const dmRarityMap = {
         'Consumer': 'consumer%20grade',
@@ -1001,13 +1528,29 @@ async function scrapeDM(page, collection, rarity) {
     const link = `https://dmarket.com/ingame-items/item-list/csgo-skins?category_0=not_stattrak_tm&category_1=not_souvenir&collection=${collectionID}&quality=${rarityID}`;
     const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
 
-    await waitForRandomTimeout(page, 1500, 2500);
+    //await waitForRandomTimeout(page, 1500, 2500);
+    await randomNormalTimeout(page, 500);
 
     const cookieButtonXPath = '/html/body/app-root/mat-sidenav-container/mat-sidenav-content/div[1]/app-header/header-banners/div/cookie-banner/div/div/div/div[2]/button';
     await acceptCookies(page, cookieButtonXPath);
+    //await acceptCookiesByText(page);
+    await randomNormalTimeout(page, 500);
+
+    const closeTutorial = '#cdk-overlay-0 > div > div > mat-icon';
+    await clickAndWait(page, cursor, closeTutorial, 'closed item filter', 500);
+
+
+
+    const closeItemFilter = 'body > app-root > mat-sidenav-container > mat-sidenav-content > exchange > div > div > market-side > div > filters > div > div > filters-area > div > div.c-filtersArea__header > button';
+    await clickAndWait(page, cursor, closeItemFilter, 'closed item filter', 750);
+
+    
+    const closeLiveFeed = 'body > app-root > mat-sidenav-container > mat-sidenav-content > exchange > div > div > market-side > div > market-inventory > live-feed-desktop > div > div > button';
+    await clickAndWait(page, cursor, closeLiveFeed, 'closed live feed', 750);
 
     const results = await scrapeCombinedItems(page, source, useless, width, height, useless);
     //await waitForRandomTimeout(page, 250, 750);
+    await randomNormalTimeout(page, 500);
     //console.log(results)
     
     return results;
@@ -1015,6 +1558,7 @@ async function scrapeDM(page, collection, rarity) {
 
 // monkey function
 async function scrapeMonkey(page, collection, rarity) {
+    console.log('');
     const source = 'Monkey';
     console.log(source);
     let useless;
@@ -1100,35 +1644,55 @@ async function scrapeMonkey(page, collection, rarity) {
     const link = `https://skinsmonkey.com/trade`;
     const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
 
-    await waitForRandomTimeout(page, 1500, 2500);
+    //await waitForRandomTimeout(page, 1500, 2500);
+    //const cursor = createCursor(page);
+    await randomNormalTimeout(page, 1000);
 
     //advanced filtering
-    await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__top > div > div > span:nth-child(2)');
-    await waitForRandomTimeout(page, 1000, 2500);
+    //await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__top > div > div > span:nth-child(2)');
+    //await waitForRandomTimeout(page, 1000, 2500);
+    const advancedFilteringSelector = '#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__top > div > div > span:nth-child(2)';
+    //await clickAndWait(cursor, advancedFilteringSelector, 'advanced filtering', 500, 2500, page);
+    await clickAndWait(page, cursor, advancedFilteringSelector, 'advanced filtering', 1250);
 
     //await clickButton(page, 'Rarity filter', '');
     //rarity filter
-    await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-rarity > div > span');
-    await waitForRandomTimeout(page, 1000, 2500);
+    //await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-rarity > div > span');
+    //await waitForRandomTimeout(page, 1000, 2500);
+    const rarityFilterSelector = '#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-rarity > div > span';
+    //await clickAndWait(cursor, rarityFilterSelector, 'rarity selector', 500, 2500, page);
+    await clickAndWait(page, cursor, rarityFilterSelector, 'rarity selector', 1000);
 
     //await clickButton(page, 'Restricted', '.trade-filter-option-generic__label [data-rarity="RESTRICTED"]');
     //click rarity
     const rarityUpper = rarity.toUpperCase();
-    await page.click(`.trade-filter-option-generic__label [data-rarity="${rarityUpper}"]`);
-    await waitForRandomTimeout(page, 1000, 2500);
+    //await page.click(`.trade-filter-option-generic__label [data-rarity="${rarityUpper}"]`);
+    //await waitForRandomTimeout(page, 1000, 2500);
+    const upperRaritySelector = `.trade-filter-option-generic__label [data-rarity="${rarityUpper}"]`;
+    //await clickAndWait(cursor, upperRaritySelector, `selected ${rarityUpper}`, 500, 2500, page);
+    await clickAndWait(page, cursor, upperRaritySelector, `selected ${rarityUpper}`, 750);
 
     //collection filter
-    await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection > div > span');
-    await waitForRandomTimeout(page, 1000, 2500);
+    //await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection > div > span');
+    //await waitForRandomTimeout(page, 1000, 2500);
+    const collectionFilterSelector = '#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection > div > span';
+    //await clickAndWait(cursor, collectionFilterSelector, 'opened collections filtering', 500, 2500, page);
+    await clickAndWait(page, cursor, collectionFilterSelector, 'opened collections filtering', 1000);
 
     //open collections
-    await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection.expanded > div.trade-collapse__body > div > div.form-multiselect__body > div > div');
-    await waitForRandomTimeout(page, 1000, 2500);
+    //await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection.expanded > div.trade-collapse__body > div > div.form-multiselect__body > div > div');
+    //await waitForRandomTimeout(page, 1000, 2500);
+    const collectionDropdownSelector = '#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection.expanded > div.trade-collapse__body > div > div.form-multiselect__body > div > div'
+    //await clickAndWait(cursor, collectionDropdownSelector, 'opened collections dropdown', 500, 2500, page);
+    await clickAndWait(page, cursor, collectionDropdownSelector, 'opened collections dropdown', 750);
     
     //click collection
+    //await page.click('#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection.expanded > div.trade-collapse__body > div > div.select-list > div > div:nth-child(10) > div > div > div.trade-filter-collection-item > span');
+    //await waitForRandomTimeout(page, 1000, 2500);
     const collectionID = monkeyCollectionMap[collection];
-    await page.click(`#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection.expanded > div.trade-collapse__body > div > div.select-list > div > div:nth-child(${collectionID}) > div > div > div.trade-filter-collection-item > span`);
-    await waitForRandomTimeout(page, 1000, 2500);
+    const collectionSelector = `#__layout > div > div.trade.main > div > div.trade-panel > div.trade-panel__wrapper > div > div.trade-filters__body > div > div > div > div > div.trade-collapse.trade-filter-collection.expanded > div.trade-collapse__body > div > div.select-list > div > div:nth-child(${collectionID}) > div > div > div.trade-filter-collection-item > span`;
+    //await clickAndWait(cursor, collectionSelector, `selected collection ${collection}`, 500, 2500, page);
+    await clickAndWait(page, cursor, collectionSelector, `selected collection ${collection}`, 750);
 
 
     const elementSelector = '#__layout > div > div.trade.main > div > div:nth-child(3) > div.inventory-grid';
@@ -1154,15 +1718,16 @@ async function scrapeMonkey(page, collection, rarity) {
     }
     */
 
-    await moveAndScroll(page, boundingBox.width, boundingBox.height, moveCount = 5, minScroll = 50, maxScroll = 250, minX = boundingBox.x, minY = boundingBox.y)
+    //await moveAndScroll(page, boundingBox.width, boundingBox.height, moveCount = 5, minScroll = 50, maxScroll = 250, minX = boundingBox.x, minY = boundingBox.y)
 
     //updatePricesCSV(item, collection, rarity, otherWearResults, source); // update the prices for other wears in the pricesCSV
 
-    const cookieButtonXPath = '/html/body/app-root/mat-sidenav-container/mat-sidenav-content/div[1]/app-header/header-banners/div/cookie-banner/div/div/div/div[2]/button';
+    //const cookieButtonXPath = '/html/body/app-root/mat-sidenav-container/mat-sidenav-content/div[1]/app-header/header-banners/div/cookie-banner/div/div/div/div[2]/button';
     //await acceptCookies(page, cookieButtonXPath);
 
     const results = await scrapeCombinedItems(page, source, useless, boundingBox.width, boundingBox.height, useless, minX = boundingBox.x, minY = boundingBox.y);
     //await waitForRandomTimeout(page, 250, 750);
+    await randomNormalTimeout(page, 500);
     //console.log(results)
     
     return results;
@@ -1250,6 +1815,7 @@ function processAltText(altText, source) {
 
 // bit function
 async function scrapeBit(page, item, collection, rarity) {
+    console.log('');
     const source = 'Bit';
     console.log(source);
     let useless;
@@ -1269,11 +1835,13 @@ async function scrapeBit(page, item, collection, rarity) {
     const itemLinkName = item.toLowerCase().replace(/[_-]/g, '+');
 
     //const link = `https://dmarket.com/ingame-items/item-list/csgo-skins?category_0=not_stattrak_tm&category_1=not_souvenir&collection=${collectionID}&quality=${rarityID}`;
-    const link = `https://bitskins.com/market/cs2?search={"order":[{"field":"discount","order":"DESC"}],"where":{"category_id":[1],"quality_id":[${rarityID}],"skin_name":"${itemLinkName}"}}`;
     //const link = `https://bitskins.com/market/cs2?search={"order":[{"field":"discount","order":"DESC"}],"where":{"category_id":[1],"quality_id":[4]}}`;
+    //const link = `https://bitskins.com/market/cs2?search={"order":[{"field":"discount","order":"DESC"}],"where":{"category_id":[1],"quality_id":[${rarityID}],"skin_name":"${itemLinkName}"}}`;
+    const link = `https://bitskins.com/market/cs2?search={"where":{"category_id":[1],"quality_id":[${rarityID}],"skin_name":"${itemLinkName}"}}`;
     const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
 
-    await waitForRandomTimeout(page, 1500, 2500);
+    //await waitForRandomTimeout(page, 1500, 2500);
+    await randomNormalTimeout(page, 1500);
 
     const cookieButtonXPath = '/html/body/app-root/mat-sidenav-container/mat-sidenav-content/div[1]/app-header/header-banners/div/cookie-banner/div/div/div/div[2]/button';
     //await acceptCookies(page, cookieButtonXPath);
@@ -1287,6 +1855,7 @@ async function scrapeBit(page, item, collection, rarity) {
 
 // money function
 async function scrapeMoney(page, collection, rarity) {
+    console.log('');
     const source = 'Money';
     console.log(source);
     let useless;
@@ -1303,20 +1872,21 @@ async function scrapeMoney(page, collection, rarity) {
 
     //const rarityID = bitRarityMap[rarity];
     
-    const collectionLinkName = collection;
+    const collectionLinkName = encodeURIComponent(collection);
 
     //const link = `https://dmarket.com/ingame-items/item-list/csgo-skins?category_0=not_stattrak_tm&category_1=not_souvenir&collection=${collectionID}&quality=${rarityID}`;
-    const link = `https://cs.money/csgo/trade/?sort=float&order=asc&rarity=${rarity}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
+    //const link = `https://cs.money/csgo/trade/?sort=float&order=asc&rarity=${rarity}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
     //const link = `https://bitskins.com/market/cs2?search={"order":[{"field":"discount","order":"DESC"}],"where":{"category_id":[1],"quality_id":[4]}}`;
+    const link = `https://cs.money/csgo/trade/?rarity=${rarity}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
     const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
 
-    await waitForRandomTimeout(page, 2500, 3500);
-
+    //await waitForRandomTimeout(page, 2500, 3500);
+    await randomNormalTimeout(page, 2000);
 
     await acceptCookiesByText(page);
 
-    await waitForRandomTimeout(page, 250, 750);
-
+    //await waitForRandomTimeout(page, 250, 750);
+    await randomNormalTimeout(page, 500);
 
     // get the dimensions of scrolling field
     const elementSelector = '#layout-page-content-area > div > div > div.MediaQueries_desktop__TwhBE.TradePage_full_height__3Vv16 > div > div.TradePage_content__22N7o > div:nth-child(3) > div.bot-listing_container__1LBz1 > div.bot-listing_body__3xI0X';
@@ -1346,28 +1916,32 @@ async function scrapeMoney(page, collection, rarity) {
     // If the current currency is not '$ USD', click to open the dropdown and then select '$ USD'
     if (currentCurrency !== '$ USD') {
         // Click the currency label to open the dropdown
-        await page.click(currencyLabelSelector);
+       // await page.click(currencyLabelSelector);
+       await cursor.click(currencyLabelSelector);
 
-        await waitForRandomTimeout(page, 250, 1250);
+        //await waitForRandomTimeout(page, 250, 1250);
+        await randomNormalTimeout(page, 500);
         // Wait for the dropdown to open and the '$ USD' option to be available, then click it
         await page.waitForSelector(currencyToSelectSelector, { visible: true });
-        await page.click(currencyToSelectSelector);
+        //await page.click(currencyToSelectSelector);
+        await cursor.click(currencyToSelectSelector);
     }
 
-    await moveAndScroll(page, boundingBox.width, boundingBox.height, moveCount = 1, minScroll = 10, maxScroll = 50, minX = boundingBox.x, minY = boundingBox.y)
+    //await moveAndScroll(page, boundingBox.width, boundingBox.height, moveCount = 1, minScroll = 10, maxScroll = 50, minX = boundingBox.x, minY = boundingBox.y)
 
     const results = await scrapeCombinedItems(page, source, useless, boundingBox.width, boundingBox.height, useless, minX = boundingBox.x, minY = boundingBox.y);
-    await waitForRandomTimeout(page, 250, 750);
+    //await waitForRandomTimeout(page, 250, 750);
+    await randomNormalTimeout(page, 500);
     //console.log(results)
     
     return results;
 }
 
 // main bot collection function
-async function scrapeSites(page, collection, rarity, index) {
+async function scrapeSites(page, collection, rarity, loop) {
     let siteResults = [];
 
-    if (index === 0) {
+    if (loop === 0) {
         try {
             const portResults = await scrapePort(page, collection, rarity);
             console.log(portResults);
@@ -1375,7 +1949,8 @@ async function scrapeSites(page, collection, rarity, index) {
         } catch (error) {
             console.error(`Error scraping Port for collection ${collection} at ${rarity}: ${error}`);
         }
-    } else if (index === 1) {
+    // /*
+    } else if (loop === 1) {
         try {
             const dmResults = await scrapeDM(page, collection, rarity);
             console.log(dmResults);
@@ -1383,7 +1958,8 @@ async function scrapeSites(page, collection, rarity, index) {
         } catch (error) {
             console.error(`Error scraping DM for collection ${collection} at ${rarity}: ${error}`);
         }
-    } else if (index === 2) {
+    // */
+    } else if (loop === 2) {
         try {
             const monkeyResults = await scrapeMonkey(page, collection, rarity);
             console.log(monkeyResults);
@@ -1391,7 +1967,7 @@ async function scrapeSites(page, collection, rarity, index) {
         } catch (error) {
             console.error(`Error scraping Monkey for collection ${collection} at ${rarity}: ${error}`);
         }
-    } else if (index === 3) {
+    } else if (loop === 3) {
         try {
             const moneyResults = await scrapeMoney(page, collection, rarity);
             //console.log(moneyResults);
@@ -1405,14 +1981,31 @@ async function scrapeSites(page, collection, rarity, index) {
 }
 
 // main function
-(async () => {
+async function run() {
     stashIDCSV = await readCsv('C:/Users/Kristaps/Desktop/TUP-main/IDS/Stash/stash_ids.csv');
     // Launch the browser
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
+
+    await interceptCanvasFingerprinting(page);
+
+    /*
+    // Setting custom headers
+    await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Upgrade-Insecure-Requests': '1',
+        // Additional headers as needed
+    });
+    */
+
+    await installMouseHelper(page);
+    cursor = createCursor(page);
     
-    const collections = ['Revolution'];
+    //const collections = ['Revolution', 'Anubis'];
+    //const collections = ['Dreams & Nightmares'];
+    const collections = ['Anubis'];
     const rarity = 'Restricted';
+    //const rarity = 'Classified';
 
     const upperRarity = getUpperRarity(rarity, allRarities);
 
@@ -1422,11 +2015,11 @@ async function scrapeSites(page, collection, rarity, index) {
         console.log(`Collection: ${collection}`);
 
 
-        const upperItems = getItemsByCollectionAndRarity(stashIDCSV, collection, upperRarity);
+        const upperItems = getItemsByCollectionAndRarity(stashIDCSV, collection.replace(/ /g, '_'), upperRarity);
         //const upperItems = [];
         console.log(`Upper items: ${upperItems}`);
 
-        const items = getItemsByCollectionAndRarity(stashIDCSV, collection, rarity);
+        const items = getItemsByCollectionAndRarity(stashIDCSV, collection.replace(/ /g, '_'), rarity);
         //const items = ['Glock-18_Umbral_Rabbit'];
         console.log(`Items: ${items}`);
 
@@ -1442,12 +2035,13 @@ async function scrapeSites(page, collection, rarity, index) {
         for (let loop = 0; loop < loopsToDo; loop++) {
             console.log(`Doing loop: ${loop+1}`);
             
+            // /*
             // Check if the current index is within the bounds of upperItems
             if (loop < upperItemCount) {
                 try {
                     //const floatValues = await scrapeStash(page, item, collection, upperRarity);
                     const floatValues = await scrapeAnalyst(page, upperItems[loop], collection, upperRarity);
-                    await waitForRandomTimeout(page, 1500, 3000);
+                    //await waitForRandomTimeout(page, 1500, 3000);
                     //itemResults = [...itemResults, ...resultsFromHalo];
                 } catch (error) {
                     console.error(`Error scraping Analyst for item ${upperItems[loop]}: ${error}`);
@@ -1455,9 +2049,11 @@ async function scrapeSites(page, collection, rarity, index) {
             } else {
                 console.log(`All ${upperItemCount} upper items have been checked`);
             }
+            // */
 
 
             // Check if the current index is within the bounds of items
+            /*
             if (loop < itemCount) {
                 try {
                     const bitResults = await scrapeBit(page, items[loop], collection, rarity);
@@ -1469,8 +2065,9 @@ async function scrapeSites(page, collection, rarity, index) {
             } else {
                 console.log(`All ${itemCount} items have been scraoed on Bit`);
             }
+            // */
 
-
+            // /*
             // Check if the current index is within the bounds of sites
             if (loop < siteCount) {
                 //const floatValues = await scrapeAnalyst(page, upperItems[loop], collection, upperRarity);
@@ -1481,8 +2078,24 @@ async function scrapeSites(page, collection, rarity, index) {
             } else {
                 console.log(`All ${siteCount} sites have been scraped`);
             }
+            // */
+            
         
         }
+        /*
+        const siteResults = await scrapeSites(page, collection, rarity, 3);
+        itemResults = [...itemResults, ...siteResults];
+        // */
+        
+        /*
+        try {
+            const bitResults = await scrapeBit(page, items[0], collection, rarity);
+            console.log(bitResults);
+            itemResults = [...itemResults, ...bitResults];
+        } catch (error) {
+            console.error(`Error scraping Bit for item ${items[0]} at ${collection} and ${rarity}: ${error}`);
+        }
+        */
 
         /*
         for (const upperItem of upperItems) {
@@ -1553,6 +2166,10 @@ async function scrapeSites(page, collection, rarity, index) {
     //console.log(itemResults);
   
     //await waitForRandomTimeout(page, 50000, 100000);
-    await waitForRandomTimeout(page, 500, 1500);
+    //await waitForRandomTimeout(page, 500, 1500);
+    await randomNormalTimeout(page, 500);
+    //await randomNormalTimeout(page, 50000);
     await browser.close();
-})();
+}
+
+run().catch(console.error);

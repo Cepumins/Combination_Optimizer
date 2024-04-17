@@ -560,18 +560,6 @@ def comb_main(all_collections, rarities):
         pair_def_time_elapsed_total = 0
         processing_time_total = 0
     
-        '''
-        for idx, collection in enumerate(all_collections):
-            try:
-                # Load the collection data from CSV
-                df = pd.read_csv(f'Items/{item_rarity}/{collection}/_{item_rarity}_comb_n_filt.csv')
-                # Replace the 'Collection' column with the numerical identifier (idx)
-                df['Collection'] = idx
-                # Store the processed DataFrame in the collection_data dictionary
-                collection_data[collection] = df
-                # Add the collection to the list of collections for this rarity
-                collections_for_this_rarity.append(collection)
-        '''
         for collection in all_collections: # load collection df for each collection
             try:
                 collection_data[collection] = pd.read_csv(f'Items/{item_rarity}/{collection}/_{item_rarity}_comb_n_filt.csv')
@@ -954,12 +942,18 @@ def main(all_collections, rarities):
 #all_collections = ["Clutch"]
 #all_collections = ["Danger_Zone", "Clutch"]
 #all_collections = ["Danger_Zone"]
-all_collections = ["Revolution"]
+#all_collections = ["Revolution"]
+#all_collections = ["Anubis"]
 #all_collections = ["Danger_Zone", "Revolution"]
 #all_collections = ["Anubis", 'Revolution']
+collection_names = ["Dreams & Nightmares", 'Anubis']
 rarities = ["Classified"]
 
 #rarities = ["Covert"]
+
+all_collections = [name.replace(' ', '_') for name in collection_names]
+#all_collections = collection_names
+#all_collections = ["Dreams_&_Nightmares", 'Anubis']
 
 #main(collections, rarities)
 if __name__ == '__main__':

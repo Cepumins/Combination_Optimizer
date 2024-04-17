@@ -5,12 +5,16 @@
     "csv-writer": "^1.6.0",
     "fs": "^0.0.1-security",
     "fs-extra": "^11.1.1",
+    "ghost-cursor": "^1.2.0",
     "iconv-lite": "^0.6.3",
     "moment": "^2.29.4",
     "path": "^0.12.7",
     "puppeteer": "^20.9.0",
     "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-anonymize-ua": "^2.4.6",
+    "puppeteer-extra-plugin-block-resources": "^2.4.3",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer-extra-plugin-user-preferences": "^2.4.1",
     "python-shell": "^5.0.0"
   }
 }

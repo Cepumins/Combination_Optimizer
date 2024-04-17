@@ -108,12 +108,14 @@ def main(collection, rarity):
     #print(final_data)
     cols = ['Coll_ID'] + [col for col in final_data.columns if col != 'Coll_ID']
     final_data = final_data[cols]
-    final_data['Collection'] = collection
+
+    collection_name = collection.replace(' ', '_')
+    final_data['Collection'] = collection_name
     print('Combined & Filtered data: ')
     #print(final_data.head(10))
     print(final_data)
     
-    final_data.to_csv(f"items/{rarity}/{collection}/_{rarity}_comb_n_filt.csv", index=False)    
+    final_data.to_csv(f"items/{rarity}/{collection_name}/_{rarity}_comb_n_filt.csv", index=False)    
 
 #collection = 'Clutch'
 

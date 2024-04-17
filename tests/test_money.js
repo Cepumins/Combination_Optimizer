@@ -12,6 +12,7 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const { parse } = require('csv-parse/sync');
 const csv = require('csv-parser');
 const { spawn } = require('child_process');
+const { createCursor } = require('ghost-cursor');
 
 let haloIDCSV, buffIDCSV, stashIDCSV;
 
@@ -451,6 +452,219 @@ async function acceptCookiesByText(page) {
     }
 }
 
+async function installMouseHelper(page) {
+    await page.evaluateOnNewDocument(() => {
+        // Install mouse helper only for pages where you want to see the cursor
+        window.addEventListener('DOMContentLoaded', () => {
+            const box = document.createElement('puppeteer-mouse-pointer');
+            const styleElement = document.createElement('style');
+            styleElement.innerHTML = `
+            puppeteer-mouse-pointer {
+                pointer-events: none;
+                position: absolute;
+                top: 0;
+                z-index: 10000;
+                left: 0;
+                width: 20px;
+                height: 20px;
+                background: rgba(255,165,0,0.7);
+                border: 1px solid white;
+                border-radius: 10px;
+                margin-top: -10px;
+                margin-left: -10px;
+                transition: background .2s, border-radius .2s, border-color .2s;
+            }
+            puppeteer-mouse-pointer.button-1 {
+                transition: none;
+                background: rgba(0,0,255,0.9);
+                border-color: white;
+                border-radius: 4px;
+            }
+            puppeteer-mouse-pointer.button-2 {
+                transition: none;
+                border-color: rgba(255,0,0,0.9);
+            }
+            puppeteer-mouse-pointer.button-3 {
+                transition: none;
+                border-radius: 4px;
+            }
+            puppeteer-mouse-pointer.button-4 {
+                transition: none;
+                border-color: rgba(255,255,0,0.9);
+            }
+            puppeteer-mouse-pointer.button-5 {
+                transition: none;
+                border-color: rgba(0,255,0,0.9);
+            }`;
+            document.head.appendChild(styleElement);
+            document.body.appendChild(box);
+            document.addEventListener('mousemove', event => {
+                box.style.left = event.pageX + 'px';
+                box.style.top = event.pageY + 'px';
+            }, true);
+            document.addEventListener('mousedown', event => {
+                box.classList.add('button-' + event.which);
+            }, true);
+            document.addEventListener('mouseup', event => {
+                box.classList.remove('button-' + event.which);
+            }, true);
+        });
+    });
+}
+
+async function clickAndWait(cursor, selector, text, minTimeout, maxTimeout, page) {
+    try {
+        // Wait for the element to be available
+        await page.waitForSelector(selector);
+        
+        // Click the element using the provided cursor
+        await cursor.click(selector);
+        console.log(`Clicked on: ${text}`);
+        
+        // Wait for a random duration between minTimeout and maxTimeout
+        await waitForRandomTimeout(page, minTimeout, maxTimeout);
+    } catch (error) {
+        console.error(`Error clicking on: ${text}:`, error);
+    }
+}
+
+async function changeItemSorting(page, source, currentSort) {
+    let newSort;
+    try {
+        console.log('gets to changing function');
+        
+        /*
+        let cursorX, cursorY;
+        const { width: pageWidth, height: pageHeight } = await page.evaluate(() => {
+            return {
+                width: window.innerWidth,
+                height: window.innerHeight
+            };
+        });
+        
+        ({cursorX, cursorY} = await simulateMouseMovements(page, 1, pageWidth, pageHeight));
+        console.log(`cursorX: ${cursorX}, cursorY: ${cursorY}`);
+        */
+        const cursor = createCursor(page);
+        //console.log('creates cursor');
+        await waitForRandomTimeout(page, 500, 2500);  // adjust the timeout according to the response time of the website
+
+        if (source === 'Bit') {
+            // Click the sort dropdown to open it
+            const sortingButtonSelector = '#market > div.items-content > div.content-bar.main > div.btns-row.btns-ip.flex > div.dropdown.market-sorting > button';
+            //await page.waitForSelector(sortingButtonSelector);
+            //await cursor.click(sortingButtonSelector);
+            //console.log('Selected sorter');
+            //await waitForRandomTimeout(page, 500, 2500); 
+            await clickAndWait(cursor, sortingButtonSelector, 'sorting button', 500, 2500, page);
+
+
+
+            if (currentSort === 'default') {
+                // Open the type of sorting dropdown
+                const sortingDropdownSelector = 'div#vs1__combobox.vs__dropdown-toggle';
+                //await page.waitForSelector(sortingDropdown);
+                //await cursor.click(sortingDropdown);
+                //console.log('Opened sorter types');
+                //await waitForRandomTimeout(page, 150, 1500);
+                await clickAndWait(cursor, sortingDropdownSelector, 'sorting dropdown', 150, 1500, page);
+
+                // Select 'Float' option from the dropdown
+                //({cursorX, cursorY} = await humanLikeMouseMove(page, 901, 699, cursorX, cursorY));
+                //await page.click('li#vs1__option-4.vs__dropdown-option'); // Selector for 'Float'
+                const floatSelector = 'li#vs1__option-4.vs__dropdown-option';
+                //await page.waitForSelector(floatSelector);
+                //await cursor.click(floatSelector);
+                //console.log('Selected floats order');
+                //await waitForRandomTimeout(page, 150, 1500);
+                await clickAndWait(cursor, floatSelector, 'float from dropdown', 150, 1500, page);
+
+                // Open the order direction dropdown (Lowest First/ Highest First)
+                //({cursorX, cursorY} = await humanLikeMouseMove(page, 1066, 567, cursorX, cursorY));
+                //await page.click('div#vs2__combobox.vs__dropdown-toggle');
+                const orderDropdownSelector = 'div#vs2__combobox.vs__dropdown-toggle';
+                //await page.waitForSelector(orderDropdown);
+                //await cursor.click(orderDropdown);
+                //console.log('Opened direction dropdown');
+                //await waitForRandomTimeout(page, 150, 1500);
+                await clickAndWait(cursor, orderDropdownSelector, 'order dropdown', 150, 1500, page);
+
+                // Select 'Lowest first' option
+                //({cursorX, cursorY} = await humanLikeMouseMove(page, 1087, 602, cursorX, cursorY));
+                //await page.click('li#vs2__option-0.vs__dropdown-option'); // Selector for 'Lowest first'
+                const lowestFirstSelector = 'li#vs2__option-0.vs__dropdown-option';
+                //await page.waitForSelector(lowestFirst);
+                //await cursor.click(lowestFirst);
+                //console.log('Selected lowest first');
+                //await waitForRandomTimeout(page, 150, 1500);
+                await clickAndWait(cursor, lowestFirstSelector, 'lowest first (ascending)', 150, 1500, page);
+
+                newSort = 'float';
+            } else if (currentSort === 'float') {
+                const sortingDropdownSelector = 'div#vs3__combobox.vs__dropdown-toggle';
+                await clickAndWait(cursor, sortingDropdownSelector, 'sorting dropdown', 150, 1500, page);
+
+                const discountSelector = 'li#vs1__option-2.vs__dropdown-option';
+                await clickAndWait(cursor, discountSelector, 'discount from dropdown', 150, 1500, page);
+
+                newSort = 'discount';
+            } else if (currentSort === 'discount') {
+                const sortingDropdownSelector = 'div#vs3__combobox.vs__dropdown-toggle';
+                await clickAndWait(cursor, sortingDropdownSelector, 'sorting dropdown', 150, 1500, page);
+
+                const priceSelector = 'li#vs1__option-0.vs__dropdown-option';
+                await clickAndWait(cursor, priceSelector, 'price from dropdown', 150, 1500, page);
+
+                const orderDropdownSelector = 'div#vs2__combobox.vs__dropdown-toggle';
+                await clickAndWait(cursor, orderDropdownSelector, 'order dropdown', 150, 1500, page);
+
+                const lowestFirstSelector = 'li#vs2__option-0.vs__dropdown-option';
+                await clickAndWait(cursor, lowestFirstSelector, 'lowest first (ascending)', 150, 1500, page);
+
+                newSort = 'price';
+            } else {
+                newSort = 'broken';
+            }
+
+            // Click the Apply button to apply the sorting
+            //({cursorX, cursorY} = await humanLikeMouseMove(page, 1084, 670, cursorX, cursorY));
+            //await page.click('button.btn.btn-primary'); // Simplified selector for the Apply button
+            const applyButtonSelector = '#market .items-content .content-bar.main .btns-row.btns-ip.flex .dropdown.active.market-sorting .body.default .actions button.btn.btn-primary';
+            //await page.waitForSelector(applyButtonSelector);
+            //await cursor.click(applyButtonSelector);
+            //console.log('Applied changes');
+            //await waitForRandomTimeout(page, 500, 2500); // Final wait to ensure application of settings
+            await clickAndWait(cursor, applyButtonSelector, 'apply changes', 500, 2500, page);
+
+            const closeSorterSelector = '#market .dropdown.active.market-sorting .btn-close';
+            await clickAndWait(cursor, closeSorterSelector, 'closed sorter', 150, 1500, page);
+        } 
+        else if (source === 'Money') {
+            const sortingDropdownSelector = 'div.bot-listing_header__2VZJJ button#downshift-1-toggle-button';
+            await clickAndWait(cursor, sortingDropdownSelector, 'sorting dropdown', 150, 1500, page);
+
+            if (currentSort === 'default') {
+                const sortingDropdownSelector = 'ul.csm_ui__options_list__05cf7 li#downshift-1-item-5';
+                await clickAndWait(cursor, sortingDropdownSelector, 'sorting dropdown', 150, 1500, page);
+                newSort = 'float';
+            } else if (currentSort === 'float') {
+                const sortingDropdownSelector = 'ul.csm_ui__options_list__05cf7 li#downshift-1-item-3';
+                await clickAndWait(cursor, sortingDropdownSelector, 'sorting dropdown', 150, 1500, page);
+                newSort = 'price';
+            }
+        }
+
+        
+        console.log(`Changed sort order to ${newSort} for ${source}`);
+        //return newSort;
+    } catch (error) {
+        console.error(`Error changing sort order for ${source}:`, error);
+        //return 'broken';
+        newSort = 'broken';
+    }
+    return newSort;
+}
+
 
 // item scraper function
 async function scrapeCombinedItems(page, source, exchangeRatio, width, height, totalItems = null, minX = 0, minY = 0) {
@@ -459,6 +673,7 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
     // const seenItems = new Set();
     let itemIndex = 1;
     const records = [];
+    let sortOrder = 'default';
 
     let lastItemTimeout = 20;
     const totalAllowedTime = 45;
@@ -494,7 +709,7 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
     let floats, itemAlts;
 
     await waitForRandomTimeout(page, 100, 500);
-    await randomScrollPage(page, 50, 250);
+    //await randomScrollPage(page, 50, 250);
     while (true) {
         try {
 
@@ -583,6 +798,7 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
                         usdPrice = cleanPrice;
                     }
 
+                    console.log(`${itemIndex}: ${itemName} - ${float} (${price}) at ${timestamp}`);
                     records.push({
                         index: itemIndex++,
                         price: usdPrice,
@@ -592,7 +808,7 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
                         site: source,
                         timestamp: timestamp
                     });
-                    console.log(`${itemIndex}: ${itemName} - ${float} (${price}) at ${timestamp}`);
+                    
                     newItemsAdded = true;
                     lastItemTime = new Date();
                 }
@@ -605,7 +821,7 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
                 //await randomScrollPage(page, 50, 500);
                 //await simulateMouseMovements(page, 2, width, height);
                 //await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 250)
-                await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 150, minX, minY)
+                //await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 150, minX, minY)
                 
                 /*
                 const result = await Promise.race([
@@ -620,6 +836,19 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
                     console.log(`No new items found in the last ${lastItemTimeout}s, exiting..`);
                     break;
                 }
+
+                if (sortOrder === 'price') {
+                    console.log("Proceeding with price sort order.");
+                    await moveAndScroll(page, width, height, moveCount = 2, minScroll = 50, maxScroll = 150, minX, minY)
+                } else if (sortOrder === 'broken') {
+                    console.log('something has gone wrong in the changing order function');
+                } else {
+                    await waitForRandomTimeout(page, 100, 500);
+                    sortOrder = await changeItemSorting(page, source, sortOrder);
+                    await waitForRandomTimeout(page, 2000, 5000);
+                    lastItemTime = new Date();
+                }
+
                 console.log(`No new items found, current timer: ${((new Date() - lastItemTime)/1000).toFixed(2)}, checking again...`);
             }
             if (new Date() - startTime > (totalAllowedTime*1000)) {
@@ -660,8 +889,11 @@ async function scrapeMoney(page, collection, rarity) {
     const collectionLinkName = collection;
 
     //const link = `https://dmarket.com/ingame-items/item-list/csgo-skins?category_0=not_stattrak_tm&category_1=not_souvenir&collection=${collectionID}&quality=${rarityID}`;
-    const link = `https://cs.money/csgo/trade/?sort=float&order=asc&rarity=${rarity}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
     //const link = `https://bitskins.com/market/cs2?search={"order":[{"field":"discount","order":"DESC"}],"where":{"category_id":[1],"quality_id":[4]}}`;
+    //const link = `https://cs.money/csgo/trade/?sort=float&order=asc&rarity=${rarity}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
+    const link = `https://cs.money/csgo/trade/?rarity=${rarity}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
+    //'https://cs.money/csgo/trade/?sort=float&order=asc&rarity=Restricted&isStatTrak=false&isSouvenir=false&collection=The%20Revolution%20Collection'
+    //'https://cs.money/csgo/trade/?rarity=Restricted&isStatTrak=false&isSouvenir=false&collection=The%20Revolution%20Collection'
     const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
 
     await waitForRandomTimeout(page, 2500, 3500);
@@ -725,6 +957,8 @@ async function scrapeMoney(page, collection, rarity) {
     // Launch the browser
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
+
+    await installMouseHelper(page);
     
     //const collections = ['Revolution'];
     const collection = 'Revolution';

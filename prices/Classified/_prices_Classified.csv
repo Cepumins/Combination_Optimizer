@@ -1,4 +1,9 @@
 Item,Collection,Rarity,MinF,MaxF,Timestamp,CUR,FN,MW,FT,WW,BS,FN_Site,MW_Site,FT_Site,WW_Site,BS_Site
-AWP_Duality,Revolution,Classified,0.0,0.8,2024-04-11 23:48:11,USD,10.8349,5.3156,2.425,2.6675,1.9012,A_DM,A_DM,A_DM,A_DM,A_DM
-P2000_Wicked_Sick,Revolution,Classified,0.0,1.0,2024-04-11 23:49:12,USD,11.5808,5.5193,2.2213,1.5035,1.0767,A_Port,A_DM,A_DM,A_DM,A_DM
-UMP-45_Wild_Child,Revolution,Classified,0.0,1.0,2024-04-11 23:49:56,USD,11.6109,5.6551,2.2352,1.5132,1.1931,A_DM,A_DM,A_Port,A_DM,A_DM
+AWP_Duality,Revolution,Classified,0.0,0.8,2024-04-15 21:18:34,USD,10.7573,5.2536,2.6287,2.5608,2.112,A_DM,A_Port,A_DM,A_Port,A_Port
+Dual-Berettas-Melondrama,Dreams_&_Nightmares,Classified,0.0,1.0,2024-04-17 23:05:07,USD,11.64,2.813,1.2125,0.873,0.8827,A_DM,A_DM,A_DM,A_DM,A_DM
+FAMAS-Rapid-Eye-Movement,Dreams_&_Nightmares,Classified,0.0,1.0,2024-04-17 23:06:49,USD,11.64,2.816,1.1252,0.9118,0.873,A_DM,A_Port,A_DM,A_DM,A_DM
+FAMAS_Waters_of_Nephthys,Anubis,Classified,0.0,0.7,2024-04-17 23:23:42,USD,106.5739,69.8303,38.121,38.4296,24.112,A_DM,A_DM,A_DM,A_Port,A_Port
+MP7-Abyssal-Apparition,Dreams_&_Nightmares,Classified,0.0,1.0,2024-04-17 23:08:46,USD,8.2644,2.7984,1.1543,0.9152,0.8536,A_DM,A_Port,A_DM,A_Port,A_Port
+P2000_Wicked_Sick,Revolution,Classified,0.0,1.0,2024-04-15 21:19:47,USD,13.1241,5.3416,2.5705,1.5048,1.2056,A_DM,A_Port,A_DM,A_Port,A_Port
+P250_Apeps_Curse,Anubis,Classified,0.0,1.0,2024-04-17 23:25:45,USD,106.6903,65.4808,33.7366,31.8648,25.2648,A_DM,A_Port,A_DM,A_Port,A_Port
+UMP-45_Wild_Child,Revolution,Classified,0.0,1.0,2024-04-15 21:20:54,USD,13.5315,5.6848,2.1146,1.4162,1.1931,A_DM,A_Port,A_DM,A_DM,A_DM

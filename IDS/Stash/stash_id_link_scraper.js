@@ -112,7 +112,7 @@ const itemRename = {
   '%E9%BE%8D%E7%8E%8B': '龍王'
 };
 
-const csvFilePath = 'stash_ids.csv';
+const csvFilePath = 'C:/Users/Kristaps/Desktop/TUP-main/IDS/Stash/stash_ids.csv';
 //const csvInfoFilePath = 'info.csv';
 
 async function waitForRandomTimeout(page, minTimeout, maxTimeout) {
@@ -138,7 +138,7 @@ const readExistingIds = (filePath) => {
 };
 
 // Function to filter new links and prepare records for CSV
-const prepareNewRecords = (skinData, existingIds, collectionLinkName) => {
+const prepareNewRecords = (skinData, existingIds, collectionName) => {
   return skinData.filter(({ href, rarity }) => {
     const id = href.split('/').slice(-2, -1)[0];
     return !existingIds.has(id);
@@ -161,7 +161,7 @@ const prepareNewRecords = (skinData, existingIds, collectionLinkName) => {
 
     //return { Item: itemName, ID: id, Collection: collectionLinkName };
     //return { Item: itemName, ID: id, Collection: collectionLinkName, Rarity: rarity };
-    return { Collection: collectionLinkName, Rarity: rarity, Item: itemName, ID: id };
+    return { Collection: collectionName, Rarity: rarity, Item: itemName, ID: id };
   });
 };
 
@@ -222,9 +222,9 @@ const sortCsvByItem = async (filePath) => {
 };
 
 // Main function
-const processSkinData = async (skinData, collectionLinkName) => {
+const processSkinData = async (skinData, collectionName) => {
   const existingIds = await readExistingIds(csvFilePath);
-  const newRecords = prepareNewRecords(skinData, existingIds, collectionLinkName);
+  const newRecords = prepareNewRecords(skinData, existingIds, collectionName);
   await writeNewRecordsToCsv(csvFilePath, newRecords);
   await sortCsvByItem(csvFilePath);
   console.log('CSV processing complete.');
@@ -232,7 +232,7 @@ const processSkinData = async (skinData, collectionLinkName) => {
 
 (async () => {
   let collection_link, collectionLinkName;
-  const collection = 'Revolution';
+  const collection = 'Dreams & Nightmares';
   //const collectionType = 'case';
   let collectionType = '';
   if (mapCollectionMapping.includes(collection)) {
@@ -248,7 +248,7 @@ const processSkinData = async (skinData, collectionLinkName) => {
   if (collectionType === 'case') {
     const collectionID = caseCollectionMapping[collection];
     //collectionLinkName = collection.replace(' ', '_');
-    collectionLinkName = collection.replace(' ', '-');
+    collectionLinkName = collection.replace(/ /g, '-');
   
     collection_link = `https://csgostash.com/case/${collectionID}/${collectionLinkName}-Case`;
   } else if (collectionType === 'map') {
@@ -297,7 +297,9 @@ const processSkinData = async (skinData, collectionLinkName) => {
   // Log the extracted 'href' attributes
   console.log(skinsData);
 
-  await processSkinData(skinsData, collectionLinkName);
+  const collectionName = collection.replace(/ /g, '_');
+
+  await processSkinData(skinsData, collectionName);
 
   await waitForRandomTimeout(page, 500, 1000);
   await browser.close();
