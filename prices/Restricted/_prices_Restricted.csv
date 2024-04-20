@@ -1,3 +1,12 @@
 Item,Collection,Rarity,MinF,MaxF,Timestamp,CUR,FN,MW,FT,WW,BS,FN_Site,MW_Site,FT_Site,WW_Site,BS_Site
-Glock-18_Umbral_Rabbit,Revolution,Restricted,0.0,0.75,2024-04-04 22:15:43,USD,1.785,0.9775,0.408,0.391,0.306,Stash,Stash,Stash,Stash,Stash
-P90_Neoqueen,Revolution,Restricted,0.0,0.6,2024-04-04 22:33:38,USD,1.6235,0.7905,0.3995,0.408,0.4335,Stash,Stash,Stash,Stash,Stash
+AWP_Asiimov,Revolution,Restricted,0.18,1.00,2024-04-10 23:29:29,USD,103.3912,77.6336,111.3172,81.8389,63.5253,A_Port,A_Port,A_DM,A_DM,A_DM
+Galil-AR-Connexion,Fracture,Restricted,0.0,0.80,2024-04-18 11:19:44,USD,1.1834,0.7469,0.3168,0.3298,0.3686,A_DM,A_DM,A_Port,A_DM,A_DM
+Glock-18_Rameses_Reach,Anubis,Restricted,0.0,1.00,2024-04-18 10:57:48,USD,13.0659,8.7688,5.8685,4.8306,4.559,A_DM,A_DM,A_DM,A_DM,A_DM
+MAC-10-Allure,Fracture,Restricted,0.0,1.00,2024-04-18 11:23:15,USD,2.1243,0.6208,0.388,0.3007,0.5335,A_DM,A_DM,A_DM,A_DM,A_DM
+MAG-7-Monster-Call,Fracture,Restricted,0.0,1.00,2024-04-18 11:27:03,USD,1.32,0.6305,0.3168,0.5044,0.2716,A_Port,A_DM,A_Port,A_DM,A_DM
+MP5-SD-Kitbash,Fracture,Restricted,0.0,0.80,2024-04-18 11:30:02,USD,1.1616,0.7372,0.3589,0.3256,0.2425,A_Port,A_DM,A_DM,A_Port,A_DM
+P250-Nuclear-Threat,Nuke,Restricted,0.06,0.80,2024-04-18 00:45:30,USD,511.6936,77.1635,23.4344,21.6504,22.5137,A_Port,A_DM,A_Port,A_DM,A_DM
+P90_Neoqueen,Revolution,Restricted,0.6,0.00,2024-04-10 23:21:21,USD,1.5488,0.7081,0.3007,0.3298,0.3977,A_Port,A_DM,A_DM,A_DM,A_DM
+P90_ScaraB_Rush,Anubis,Restricted,0.0,1.00,2024-04-18 11:04:53,USD,12.2584,9.064,5.0149,4.4528,4.5848,A_Port,A_Port,A_DM,A_Port,A_Port
+Tec-9-Brother,Fracture,Restricted,0.0,1.00,2024-04-18 11:32:59,USD,1.2144,0.6693,0.3492,0.2716,0.291,A_Port,A_DM,A_DM,A_DM,A_DM
+Tec-9-Nuclear-Threat,Nuke,Restricted,0.06,0.80,2024-04-18 00:47:14,USD,665.456,126.0903,34.1264,30.888,38.6933,A_Port,A_DM,A_Port,A_Port,A_DM

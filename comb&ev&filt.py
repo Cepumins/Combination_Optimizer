@@ -946,8 +946,10 @@ def main(all_collections, rarities):
 #all_collections = ["Anubis"]
 #all_collections = ["Danger_Zone", "Revolution"]
 #all_collections = ["Anubis", 'Revolution']
-collection_names = ["Dreams & Nightmares", 'Anubis']
-rarities = ["Classified"]
+#collection_names = ["Dreams & Nightmares", 'Anubis']
+collection_names = ["Fracture", "Anubis"]
+#rarities = ["Classified"]
+rarities = ["Restricted"]
 
 #rarities = ["Covert"]
 

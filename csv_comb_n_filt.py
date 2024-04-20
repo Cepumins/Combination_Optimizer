@@ -119,8 +119,8 @@ def main(collection, rarity):
 
 #collection = 'Clutch'
 
-collection = 'Revolution'
-rarity = 'Restricted'
+collection = 'Nuke'
+rarity = 'Mil-Spec'
 '''
 if __name__ == '__main__':
     main(collection, rarity)

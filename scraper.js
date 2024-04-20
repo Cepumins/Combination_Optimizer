@@ -210,7 +210,7 @@ async function moveAndScrollWeighted(page, width, height, meanScroll = 50, minX 
 
 
 // page functions
-async function initializePage(page, link, timeOut = 87000, wait = true) {
+async function initializePage(page, link, timeOut = 120000, wait = true) {
     const waitOptions = wait ? { waitUntil: 'networkidle0', timeout: timeOut } : { timeout: timeOut };
     await page.goto(link, waitOptions);
 
@@ -826,7 +826,7 @@ async function scrapeCombinedItems(page, source, exchangeRatio, width, height, t
     const baseItemTimeout = 5;
     let currentItemTimeout = baseItemTimeout;
     //let aditionalTime = 5;
-    const totalAllowedTime = 87;
+    const totalAllowedTime = 97;
     let lastItemTime = new Date();
 
     let floatSelector, priceSelector, itemSelector;
@@ -1449,7 +1449,7 @@ async function scrapePort(page, collection, rarity) {
         'Militia': 50,
         'Mirage (Old)': 29,
         'Norse': 104,
-        'Nuke (Old)': 41,
+        'Nuke': 41,
         'Office': 49,
         'Rising Sun': 13,
         'Safehouse': 30,
@@ -1479,7 +1479,7 @@ async function scrapePort(page, collection, rarity) {
     //const link = `https://skinport.com/market?sort=percent&order=desc&stattrak=0&souvenir=0&rarity=${rarityID}&collection=${id}`;
     const link = `https://skinport.com/market?stattrak=0&souvenir=0&rarity=${rarityID}&collection=${id}`;
 
-    const { width, height } = await initializePage(page, link, timeOut = 75000);
+    const { width, height } = await initializePage(page, link);
 
     let useless;
 
@@ -1522,11 +1522,11 @@ async function scrapeDM(page, collection, rarity) {
         'Covert': 'covert'
     };
 
-    //const rarityID = dMarketRarityMap[rarity];
-    const rarityID = rarity.replace(/\s/g, '%20').toLowerCase();
+    const rarityID = dmRarityMap[rarity];
+    //const rarityID = rarity.replace(/\s/g, '%20').toLowerCase();
 
     const link = `https://dmarket.com/ingame-items/item-list/csgo-skins?category_0=not_stattrak_tm&category_1=not_souvenir&collection=${collectionID}&quality=${rarityID}`;
-    const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
+    const { width, height } = await initializePage(page, link, timeOut = 120000, wait = false);
 
     //await waitForRandomTimeout(page, 1500, 2500);
     await randomNormalTimeout(page, 500);
@@ -1607,7 +1607,7 @@ async function scrapeMonkey(page, collection, rarity) {
         'Mirage (Old)': 53, 
         'Norse': 54, 
         'Nuke (2018)': 3, 
-        'Nuke (Old)': 55, 
+        'Nuke': 55, 
         'Office': 56, 
         'Operation Bravo': 19, 
         'Operation Breakout Weapon': 20, 
@@ -1642,7 +1642,7 @@ async function scrapeMonkey(page, collection, rarity) {
     };
 
     const link = `https://skinsmonkey.com/trade`;
-    const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
+    const { width, height } = await initializePage(page, link, timeOut = 120000, wait = false);
 
     //await waitForRandomTimeout(page, 1500, 2500);
     //const cursor = createCursor(page);
@@ -1665,7 +1665,15 @@ async function scrapeMonkey(page, collection, rarity) {
 
     //await clickButton(page, 'Restricted', '.trade-filter-option-generic__label [data-rarity="RESTRICTED"]');
     //click rarity
-    const rarityUpper = rarity.toUpperCase();
+    const monkeyRarityMap = {
+        'Consumer': 'Consumer Grade',
+        'Industrial': 'Industrial%20Grade',
+        'Mil-Spec': 'Mil-Spec%20Grade',
+        'Restricted': 'Restricted',
+        'Classified': 'Classified'
+    };
+
+    const rarityUpper = rarity.replace(/-/g, '').toUpperCase();
     //await page.click(`.trade-filter-option-generic__label [data-rarity="${rarityUpper}"]`);
     //await waitForRandomTimeout(page, 1000, 2500);
     const upperRaritySelector = `.trade-filter-option-generic__label [data-rarity="${rarityUpper}"]`;
@@ -1838,7 +1846,7 @@ async function scrapeBit(page, item, collection, rarity) {
     //const link = `https://bitskins.com/market/cs2?search={"order":[{"field":"discount","order":"DESC"}],"where":{"category_id":[1],"quality_id":[4]}}`;
     //const link = `https://bitskins.com/market/cs2?search={"order":[{"field":"discount","order":"DESC"}],"where":{"category_id":[1],"quality_id":[${rarityID}],"skin_name":"${itemLinkName}"}}`;
     const link = `https://bitskins.com/market/cs2?search={"where":{"category_id":[1],"quality_id":[${rarityID}],"skin_name":"${itemLinkName}"}}`;
-    const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
+    const { width, height } = await initializePage(page, link, timeOut = 120000, wait = false);
 
     //await waitForRandomTimeout(page, 1500, 2500);
     await randomNormalTimeout(page, 1500);
@@ -1863,22 +1871,22 @@ async function scrapeMoney(page, collection, rarity) {
     //const collectionID = collection.replace(/\s/g, '%20').toLowerCase();
 
     const bitRarityMap = {
-        'Consumer': 1,
-        'Industrial': 2,
-        'Mil-Spec': 3,
-        'Restricted': 4,
-        'Classified': 5
+        'Consumer': 'Consumer%20Grade',
+        'Industrial': 'Industrial%20Grade',
+        'Mil-Spec': 'Mil-Spec%20Grade',
+        'Restricted': 'Restricted',
+        'Classified': 'Classified'
     };
 
-    //const rarityID = bitRarityMap[rarity];
+    const rarityID = bitRarityMap[rarity];
     
     const collectionLinkName = encodeURIComponent(collection);
 
     //const link = `https://dmarket.com/ingame-items/item-list/csgo-skins?category_0=not_stattrak_tm&category_1=not_souvenir&collection=${collectionID}&quality=${rarityID}`;
     //const link = `https://cs.money/csgo/trade/?sort=float&order=asc&rarity=${rarity}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
     //const link = `https://bitskins.com/market/cs2?search={"order":[{"field":"discount","order":"DESC"}],"where":{"category_id":[1],"quality_id":[4]}}`;
-    const link = `https://cs.money/csgo/trade/?rarity=${rarity}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
-    const { width, height } = await initializePage(page, link, timeOut = 75000, wait = false);
+    const link = `https://cs.money/csgo/trade/?rarity=${rarityID}&isStatTrak=false&isSouvenir=false&collection=The%20${collectionLinkName}%20Collection`;
+    const { width, height } = await initializePage(page, link, timeOut = 120000, wait = false);
 
     //await waitForRandomTimeout(page, 2500, 3500);
     await randomNormalTimeout(page, 2000);
@@ -2003,8 +2011,8 @@ async function run() {
     
     //const collections = ['Revolution', 'Anubis'];
     //const collections = ['Dreams & Nightmares'];
-    const collections = ['Anubis'];
-    const rarity = 'Restricted';
+    const collections = ['Fracture'];
+    const rarity = 'Mil-Spec';
     //const rarity = 'Classified';
 
     const upperRarity = getUpperRarity(rarity, allRarities);
@@ -2053,7 +2061,7 @@ async function run() {
 
 
             // Check if the current index is within the bounds of items
-            /*
+            // /*
             if (loop < itemCount) {
                 try {
                     const bitResults = await scrapeBit(page, items[loop], collection, rarity);

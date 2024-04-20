@@ -83,7 +83,7 @@ const mapCollectionMapping = [
   'Militia',
   'Mirage (Old)',
   'Norse',
-  'Nuke (Old)',
+  'Nuke',
   'Office',
   'Rising Sun',
   'Safehouse',
@@ -232,7 +232,7 @@ const processSkinData = async (skinData, collectionName) => {
 
 (async () => {
   let collection_link, collectionLinkName;
-  const collection = 'Dreams & Nightmares';
+  const collection = 'Nuke (Old)';
   //const collectionType = 'case';
   let collectionType = '';
   if (mapCollectionMapping.includes(collection)) {
